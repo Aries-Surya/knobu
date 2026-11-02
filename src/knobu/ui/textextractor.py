@@ -10,13 +10,11 @@ from urllib.parse import unquote, urlparse
 from gi.repository import Adw, GLib, Gtk
 
 from knobu.system import portal
+from knobu.ui.overlay import ScreenOverlay, capture_screen
 from knobu.ui.tools import ToolApp, copy_text, copy_when_focused
 
 INSTALL_TESSERACT = "sudo apt install tesseract-ocr"
-
-
-def is_kde() -> bool:
-    return "KDE" in os.environ.get("XDG_CURRENT_DESKTOP", "")
+HINT = "Drag over the text you want to copy   ·   Esc to cancel"
 
 
 def ocr(image_path: str, language: str) -> tuple[str, str]:
@@ -41,21 +39,24 @@ class TextExtractorApp(ToolApp):
         self.capture()
 
     def capture(self):
-        # Spectacle gives KDE users a proper region selector; elsewhere the portal shows
-        # the desktop's own screenshot UI (GNOME's lets you select an area).
-        if is_kde() and shutil.which("spectacle"):
-            fd, path = tempfile.mkstemp(prefix="knobu-", suffix=".png")
-            os.close(fd)
-            os.unlink(path)  # spectacle writes it; an existing empty file means "cancelled"
+        capture_screen(self.on_screen)
 
-            def run():
-                subprocess.run(["spectacle", "--background", "--region", "--nonotify",
-                                "--output", path], check=False)
-                GLib.idle_add(self.on_captured, path if os.path.exists(path) else None, True)
-            threading.Thread(target=run, daemon=True).start()
-        else:
+    def on_screen(self, pixbuf):
+        if pixbuf is None:
+            # No silent capture available: fall back to the desktop's own area selector.
             portal.screenshot(lambda uri: self.on_captured(
                 unquote(urlparse(uri).path) if uri else None, False))
+            return
+        ScreenOverlay(self, pixbuf, "select", HINT, self.on_selected)
+
+    def on_selected(self, crop):
+        if crop is None:
+            self.release()
+            return
+        fd, path = tempfile.mkstemp(prefix="knobu-", suffix=".png")
+        os.close(fd)
+        crop.savev(path, "png", [], [])
+        self.on_captured(path, True)
 
     def on_captured(self, path: str | None, temporary: bool):
         if path is None:
