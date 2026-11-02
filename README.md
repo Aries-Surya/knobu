@@ -20,7 +20,9 @@ can turn on or off in the Knobu settings app.
 - Each tap can be set to mute, play/pause, next track, previous track, or nothing.
 - Media control works with any player that supports MPRIS: Spotify, browsers, VLC,
   Rhythmbox, Elisa and more. The player that's currently playing gets the command.
-- Speed, direction, maximum volume and slide finger count (3 or 4) are configurable.
+- Follows your desktop's maximum volume: 150% when KDE's "Raise maximum volume" or
+  GNOME's "Over-amplification" is on, 100% otherwise. You can also set your own limit.
+- Speed, direction and slide finger count (3 or 4) are configurable.
 - Shows your desktop's volume pop-up (KDE Plasma today, more desktops planned).
 
 > **Tip:** Linux turns a 3-finger tap into a middle-click, which pastes text in some
@@ -53,11 +55,12 @@ knobu awake off
 ### Color Picker
 
 Press **Super+Shift+C**, click any pixel, and the colour is copied (HEX, RGB or HSL).
+A magnifier shows exactly which pixel you're on; arrow keys move it by one pixel.
 The window shows all three formats and your recent colours.
 
 ### Text Extractor
 
-Press **Super+Shift+T**, select an area of the screen, and its text is copied. Uses
+Press **Super+Shift+T**, drag over the text on screen, and it's copied. Uses
 Tesseract OCR; install more languages with `sudo apt install tesseract-ocr-<lang>`.
 
 Both shortcuts can be changed in the settings app. They're also in the app menu:
