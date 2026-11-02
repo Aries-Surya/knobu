@@ -75,10 +75,10 @@ def main() -> None:
         except argparse.ArgumentTypeError as err:
             parser.error(str(err))
     elif args.command == "pick-color":
-        from knobu.tools.colorpicker import main as picker_main
+        from knobu.ui.colorpicker import main as picker_main
         sys.exit(picker_main())
     elif args.command == "extract-text":
-        from knobu.tools.textextractor import main as extractor_main
+        from knobu.ui.textextractor import main as extractor_main
         sys.exit(extractor_main())
     else:
         from knobu.ui.app import main as ui_main
