@@ -113,6 +113,34 @@ right-click Knobu's icon.
   sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
   ```
 
+## Install
+
+Download the latest `.deb` from the releases page and install it with apt, which pulls in
+the dependencies:
+
+```bash
+sudo apt install ./knobu_0.1.0_all.deb
+```
+
+Then open **Knobu** from the app menu and turn on the background service on the General
+page. Each user turns it on for themselves; nothing starts automatically after install.
+
+The package also installs a udev rule that lets members of the `input` group create
+virtual keyboards, which Keyboard Manager needs. You still need to be in that group
+(see [Requirements](#requirements)).
+
+A PPA for `apt install knobu` is planned.
+
+### Building the package
+
+```bash
+sudo apt install debhelper dh-python pybuild-plugin-pyproject python3-all \
+    python3-setuptools python3-evdev devscripts lintian
+dpkg-buildpackage -us -uc -b
+```
+
+The `.deb` is written to the parent folder.
+
 ## Running from source
 
 ```bash
