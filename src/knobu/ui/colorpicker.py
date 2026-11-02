@@ -5,10 +5,13 @@ import json
 import os
 from pathlib import Path
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from knobu.system import portal
+from knobu.ui.overlay import ScreenOverlay, capture_screen
 from knobu.ui.tools import ToolApp, copy_text, copy_when_focused
+
+HINT = "Click to pick a colour   ·   Arrow keys to fine-tune   ·   Esc to cancel"
 
 HISTORY_SIZE = 12
 
@@ -73,12 +76,24 @@ class ColorPickerApp(ToolApp):
         self.pick()
 
     def pick(self, *_args):
-        self.hold()  # keep running while the portal's picker is on screen
-        if self.window:
+        self.hold()  # keep running while nothing is on screen
+        if self.window and self.window.get_visible():
             self.window.set_visible(False)
-        portal.pick_color(self.on_picked)
+            # Let the window finish disappearing so it isn't in the screenshot.
+            GLib.timeout_add(300, lambda: capture_screen(self.on_captured) and False)
+        else:
+            capture_screen(self.on_captured)
+
+    def on_captured(self, pixbuf):
+        if pixbuf is None:
+            # No silent capture available: fall back to the desktop's own picker.
+            portal.pick_color(lambda rgb: self.on_picked(
+                tuple(round(c * 255) for c in rgb) if rgb else None))
+            return
+        ScreenOverlay(self, pixbuf, "pick", HINT, self.on_picked)
 
     def on_picked(self, rgb):
+        """rgb: (r, g, b) as 0..255 ints, or None if cancelled."""
         self.release()
         if rgb is None:
             if self.window:
@@ -86,7 +101,7 @@ class ColorPickerApp(ToolApp):
             else:
                 self.quit()
             return
-        hex_color = "#" + "".join(f"{round(c * 255):02X}" for c in rgb)
+        hex_color = "#" + "".join(f"{c:02X}" for c in rgb)
         self.history = [hex_color] + [c for c in self.history if c != hex_color]
         save_history(self.history)
         self.show(hex_color, auto_copy=True)
