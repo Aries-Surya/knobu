@@ -11,6 +11,7 @@ class SettingsStore:
     def __init__(self):
         self.data = config.load()
         self._reload_source = 0
+        self.listeners = []  # callables(module_id, key, value), e.g. sidebar status dots
 
     def get(self, module_id: str, key: str):
         defaults = modules.get(module_id).defaults
@@ -21,6 +22,8 @@ class SettingsStore:
             return
         self.data.setdefault(module_id, {})[key] = value
         config.save(self.data)
+        for listener in self.listeners:
+            listener(module_id, key, value)
         if self._reload_source:
             GLib.source_remove(self._reload_source)
         self._reload_source = GLib.timeout_add(self.RELOAD_DELAY_MS, self._reload)
