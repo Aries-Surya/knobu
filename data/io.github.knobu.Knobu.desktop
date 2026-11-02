@@ -1,0 +1,28 @@
+[Desktop Entry]
+Type=Application
+Name=Knobu
+GenericName=Desktop Utilities
+Comment=Touchpad gestures, key remapping and other power tools for Ubuntu
+Exec=knobu
+Icon=io.github.knobu.Knobu
+Terminal=false
+Categories=Settings;Utility;
+Keywords=touchpad;gestures;volume;mute;keyboard;remap;awake;color;picker;ocr;text;powertoys;
+StartupNotify=true
+Actions=PickColor;ExtractText;AwakeOn;AwakeOff;
+
+[Desktop Action PickColor]
+Name=Pick a Colour
+Exec=knobu pick-color
+
+[Desktop Action ExtractText]
+Name=Extract Text from Screen
+Exec=knobu extract-text
+
+[Desktop Action AwakeOn]
+Name=Keep Awake
+Exec=knobu awake on
+
+[Desktop Action AwakeOff]
+Name=Stop Keeping Awake
+Exec=knobu awake off

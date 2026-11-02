@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e95420"/>
+      <stop offset="1" stop-color="#c34113"/>
+    </linearGradient>
+    <linearGradient id="knob" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6e1dc"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
+  <!-- level arc -->
+  <path d="M 36.2 91.8 A 38 38 0 1 1 91.8 91.8" fill="none" stroke="#ffffff" stroke-opacity="0.3"
+        stroke-width="7" stroke-linecap="round"/>
+  <path d="M 36.2 91.8 A 38 38 0 0 1 64 26" fill="none" stroke="#ffffff"
+        stroke-width="7" stroke-linecap="round"/>
+  <!-- knob -->
+  <circle cx="64" cy="64" r="24" fill="url(#knob)"/>
+  <line x1="64" y1="64" x2="64" y2="46" stroke="#c34113" stroke-width="6" stroke-linecap="round"/>
+</svg>
