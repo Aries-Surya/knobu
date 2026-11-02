@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knobu"
+dynamic = ["version"]
+description = "PowerToys-style utilities for Ubuntu and its flavours"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+# PyGObject with GTK4 + libadwaita comes from the system packages
+# (python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1), not from PyPI.
+dependencies = ["evdev>=1.7"]
+keywords = ["ubuntu", "touchpad", "gestures", "powertoys", "gtk"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Desktop Environment",
+]
+
+[project.scripts]
+knobu = "knobu.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "knobu.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
