@@ -1,10 +1,22 @@
 # Knobu
 
-**PowerToys-style utilities for Ubuntu and its flavours** (Ubuntu, Kubuntu, Xubuntu,
-Lubuntu, Ubuntu MATE, Ubuntu Budgie, Ubuntu Studio…).
+**PowerToys-style utilities for Ubuntu.**
+
+Fully supported on **Kubuntu (KDE Plasma 6)**. **Ubuntu (GNOME)** support is in beta.
+Xubuntu, Lubuntu and Ubuntu MATE are coming soon.
 
 Knobu adds small, switchable power tools to your desktop. Each tool is a *module* you
 can turn on or off in the Knobu settings app.
+
+## Supported desktops
+
+| Desktop | Status | Notes |
+|---|---|---|
+| Kubuntu (KDE Plasma 6) | ✅ Supported | All features, including the volume pop-up and Color Picker magnifier |
+| Ubuntu (GNOME) | 🧪 Beta | No volume pop-up or magnifier; use 4-finger gestures, since GNOME uses 3-finger swipes |
+| Xubuntu, Lubuntu, Ubuntu MATE | 🔜 Planned | Start at login and the screen tools still need work |
+
+Found a problem on your desktop? Please open an issue and mention your flavour and version.
 
 ## Modules
 
@@ -71,7 +83,7 @@ right-click Knobu's icon.
 
 ## Requirements
 
-- Ubuntu 24.04 or newer, or any of its flavours
+- Ubuntu 24.04 or newer, on a [supported desktop](#supported-desktops)
 - Your user in the `input` group, so Knobu can read the touchpad and keyboards:
 
   ```bash
@@ -165,6 +177,7 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
 
 ## Roadmap
 
+- Full support for Xubuntu, Lubuntu and Ubuntu MATE (start at login, screen capture on X11)
 - Volume pop-up on GNOME, Xfce, LXQt, MATE and Budgie
 - Tray icon for quick toggles (Awake, Keyboard Manager)
 - Caps Lock / Num Lock LEDs while Keyboard Manager is remapping
