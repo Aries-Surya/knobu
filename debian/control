@@ -1,0 +1,46 @@
+Source: knobu
+Section: utils
+Priority: optional
+Maintainer: saad-1719 <chsaad1407@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-python3,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-setuptools,
+               python3-evdev,
+Standards-Version: 4.7.0
+Homepage: https://github.com/Saad-1719/knobu
+Vcs-Browser: https://github.com/Saad-1719/knobu
+Vcs-Git: https://github.com/Saad-1719/knobu.git
+Rules-Requires-Root: no
+
+Package: knobu
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3-evdev,
+         python3-gi,
+         gir1.2-gtk-4.0,
+         gir1.2-adw-1 (>= 1.5),
+         wireplumber | pulseaudio-utils,
+         systemd,
+Recommends: tesseract-ocr,
+Suggests: spectacle,
+Description: PowerToys-style utilities for Ubuntu
+ Knobu adds small power tools to the desktop, each one a module that can be
+ switched on or off in the Knobu settings app:
+ .
+  * Touchpad Gestures: slide three fingers to change the volume, tap to mute
+    or to play and pause media.
+  * Keyboard Manager: remap keys and shortcuts on every keyboard, in every
+    app, on Wayland and X11.
+  * Awake: keep the computer and screen awake without changing power
+    settings.
+  * Color Picker: pick a colour from anywhere on screen and copy it as HEX,
+    RGB or HSL.
+  * Text Extractor: select an area of the screen and copy the text in it.
+ .
+ Fully supported on Kubuntu (KDE Plasma 6); Ubuntu (GNOME) support is in
+ beta. Reading the touchpad and keyboards requires membership of the "input"
+ group. The package installs a udev rule that lets members of that group
+ create virtual keyboards, which Keyboard Manager needs.

@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=knobu
+
+%:
+	dh $@ --buildsystem=pybuild
+
+# The tests live outside the package, so run them from the source tree.
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	PYTHONPATH=$(CURDIR)/src python3 -m unittest discover -s tests -v
+endif
+
+# The license is already in /usr/share/doc/knobu/copyright.
+execute_after_dh_auto_install:
+	rm -rf debian/knobu/usr/lib/python3*/dist-packages/knobu-*.dist-info/licenses
+
+# Ship the user unit but never enable it for everyone: each user turns Knobu on
+# in the app (or with `knobu enable`).
+override_dh_installsystemduser:

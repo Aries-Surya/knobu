@@ -5,3 +5,13 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
+
+# Debian package build output
+debian/knobu/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+debian/*.debhelper
+.pybuild/

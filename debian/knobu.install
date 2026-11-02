@@ -1,0 +1,4 @@
+data/io.github.Saad_1719.Knobu.desktop usr/share/applications
+data/icons/io.github.Saad_1719.Knobu.svg usr/share/icons/hicolor/scalable/apps
+data/70-knobu-uinput.rules usr/lib/udev/rules.d
+data/knobu.service usr/lib/systemd/user

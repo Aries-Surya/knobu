@@ -1,0 +1,43 @@
+.TH KNOBU 1 "November 2026" "knobu 0.1.0" "User Commands"
+.SH NAME
+knobu \- PowerToys-style utilities for Ubuntu
+.SH SYNOPSIS
+.B knobu
+[\fICOMMAND\fR]
+.SH DESCRIPTION
+Knobu adds small power tools to the desktop: touchpad gestures for volume and
+media, key and shortcut remapping, keeping the computer awake, a colour picker
+and a text extractor. Without a command, it opens the settings app.
+.SH COMMANDS
+.TP
+.B settings
+Open the settings app (the default).
+.TP
+.B enable
+Start the background service now and at every login.
+.TP
+.B disable
+Stop the background service and remove it from login.
+.TP
+.B status
+Show whether the background service is running.
+.TP
+.BR awake " on|off|DURATION"
+Keep the computer awake until turned off, or for a duration such as 30m or 1h30m.
+.TP
+.B pick-color
+Pick a colour from the screen.
+.TP
+.B extract-text
+Select an area of the screen and copy its text.
+.TP
+.B daemon
+Run the background service in the foreground, for debugging.
+.SH FILES
+.TP
+.I ~/.config/knobu/config.toml
+Settings.
+.SH NOTES
+Reading touchpads and keyboards requires membership of the \fBinput\fR group.
+.SH SEE ALSO
+https://github.com/Saad-1719/knobu
