@@ -12,6 +12,7 @@ from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
+from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
 from knobu.ui.textextractor import INSTALL_TESSERACT
 from knobu.ui.widgets import choice_row, record_shortcut, shortcut_row, spin_row, switch_row
@@ -98,8 +99,10 @@ def touchpad_page(store: SettingsStore) -> Adw.PreferencesPage:
     volume.add(spin_row(store, mid, "percent_per_cm", "Speed",
                         "Volume change (%) per centimetre of movement", 5, 50))
     volume.add(switch_row(store, mid, "invert", "Reverse direction", "Slide down to make it louder"))
-    volume.add(spin_row(store, mid, "max_volume", "Maximum volume",
-                        "Values above 100% amplify and may distort", 50, 150, 5))
+    volume.add(choice_row(
+        store, mid, "max_volume", "Maximum volume", "Above 100% amplifies and may distort",
+        [("system", f"Same as system ({system_max_volume()}%)"),
+         (100, "100%"), (125, "125%"), (150, "150%")]))
     page.add(volume)
 
     taps = Adw.PreferencesGroup(title="Taps", description="A quick tap with several fingers.")

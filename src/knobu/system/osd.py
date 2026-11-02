@@ -15,13 +15,13 @@ class VolumeOsd:
     def available(self) -> bool:
         return self.backend is not None
 
-    def show(self, percent: int) -> None:
-        """Show the volume level; 0 renders as the muted icon."""
+    def show(self, percent: int, maximum: int = 100) -> None:
+        """Show the volume level on a 0..maximum scale; 0 renders as the muted icon."""
         if self.backend == "kde":
             # Fire-and-forget so a slow D-Bus round trip never stalls a gesture.
             subprocess.Popen(
                 ["busctl", "--user", "call", "org.kde.plasmashell", "/org/kde/osdService",
-                 "org.kde.osdService", "volumeChanged", "i", str(percent)],
+                 "org.kde.osdService", "volumeChanged", "ii", str(percent), str(maximum)],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
