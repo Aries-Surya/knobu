@@ -1,4 +1,8 @@
-"""Pages of the settings window: General plus one page per module."""
+"""Pages of the settings window: Dashboard, one page per module, and General.
+
+Each builder takes (store, navigate) and returns a widget; `navigate(page_id)` opens
+another page.
+"""
 
 import shutil
 import subprocess
@@ -6,7 +10,7 @@ import time
 
 from gi.repository import Adw, GLib, Gtk
 
-from knobu import service
+from knobu import modules, service
 from knobu.modules.awake import AwakeModule
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
@@ -15,82 +19,171 @@ from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
 from knobu.ui.textextractor import INSTALL_TESSERACT
-from knobu.ui.widgets import choice_row, record_shortcut, shortcut_row, spin_row, switch_row
+from knobu.ui.widgets import (ModulePage, app_icon, choice_row, keycaps, notice, record_shortcut,
+                              shortcut_row, spin_row, switch_row, tile)
 
 
-def command_warning(title: str, description: str, command: str) -> Adw.PreferencesGroup:
-    """A warning group with a copyable terminal command."""
-    group = Adw.PreferencesGroup(title=title, description=description)
-    row = Adw.ActionRow(title=command, title_selectable=True)
-    row.add_css_class("monospace")
-    row.add_prefix(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
-    group.add(row)
-    return group
-
-
-def button_row(title: str, label: str, callback) -> Adw.ActionRow:
-    row = Adw.ActionRow(title=title)
-    button = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
+def button_row(title: str, label: str, callback, subtitle: str = "") -> Adw.ActionRow:
+    row = Adw.ActionRow(use_markup=False)
+    row.set_title(title)
+    row.set_subtitle(subtitle)
+    button = Gtk.Button(label=label, valign=Gtk.Align.CENTER, css_classes=["pill"])
     button.connect("clicked", lambda _b: callback())
     row.add_suffix(button)
     row.set_activatable_widget(button)
     return row
 
 
-def general_page(store: SettingsStore) -> Adw.PreferencesPage:
-    page = Adw.PreferencesPage()
+def input_notice() -> list:
+    if permissions.in_input_group():
+        return []
+    return [notice("Input access needed",
+                   "Knobu can't read your touchpad and keyboard yet. Run this in a terminal, "
+                   "then log out and back in.", permissions.FIX_INPUT_GROUP)]
 
-    if not permissions.in_input_group():
-        page.add(command_warning(
-            "Input access needed",
-            "Knobu can't read your touchpad and keyboard yet. Run this command in a terminal, "
-            "then log out and back in:", permissions.FIX_INPUT_GROUP))
 
-    group = Adw.PreferencesGroup(
-        title="Background service",
-        description="Knobu runs quietly in the background so gestures, shortcuts and "
-                    "remaps work everywhere.")
-    status = Adw.ActionRow(title="Status")
-    button = Gtk.Button(valign=Gtk.Align.CENTER)
-    status.add_suffix(button)
-    autostart = Adw.SwitchRow(title="Start at login")
-    group.add(status)
-    group.add(autostart)
-    page.add(group)
+# ---------------------------------------------------------------------- Awake helpers
+
+def awake_status(store: SettingsStore) -> str:
+    mid = AwakeModule.id
+    until = store.get(mid, "until")
+    if not store.get(mid, "enabled"):
+        return "Off"
+    if store.get(mid, "mode") != "timed":
+        return "Awake until you turn it off"
+    if until > time.time():
+        return time.strftime("Awake until %H:%M", time.localtime(until))
+    return time.strftime("Timer ended at %H:%M", time.localtime(until))
+
+
+def restart_awake_timer(store: SettingsStore) -> None:
+    mid = AwakeModule.id
+    if store.get(mid, "mode") == "timed":
+        store.set(mid, "until", time.time() + store.get(mid, "minutes") * 60)
+
+
+def set_awake(store: SettingsStore, on: bool) -> None:
+    store.set(AwakeModule.id, "enabled", on)
+    if on:
+        restart_awake_timer(store)
+
+
+# ---------------------------------------------------------------------- Dashboard
+
+def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
+    """A one-line live summary shown on the module's dashboard card."""
+    def text(label: str) -> Gtk.Widget:
+        return Gtk.Label(label=label, xalign=0, css_classes=["dim-label", "summary"])
+
+    if module_id == TouchpadModule.id:
+        fingers = store.get(module_id, "fingers")
+        return text(f"{fingers}-finger slide for volume · taps for mute and media")
+    if module_id == KeyboardModule.id:
+        n = len(store.get(module_id, "remaps"))
+        return text(f"{n} remap{'s' if n != 1 else ''}" if n else "No remaps yet")
+    if module_id == AwakeModule.id:
+        return text(awake_status(store))
+    if module_id in (ColorPickerModule.id, TextExtractorModule.id):
+        return keycaps(store.get(module_id, "hotkey"))
+    return text("")
+
+
+def module_card(store: SettingsStore, cls) -> Gtk.Widget:
+    card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10,
+                   css_classes=["card", "module-card"])
+    top = Gtk.Box(spacing=12)
+    top.append(tile(cls.icon, "medium"))
+    top.append(Gtk.Box(hexpand=True))
+    switch = Gtk.Switch(valign=Gtk.Align.CENTER, active=store.get(cls.id, "enabled"),
+                        tooltip_text=f"Turn {cls.name} on or off")
+    top.append(switch)
+    card.append(top)
+    card.append(Gtk.Label(label=cls.name, xalign=0, css_classes=["heading"]))
+    # max_width_chars keeps the natural width small so cards sit side by side in the grid.
+    desc = Gtk.Label(label=cls.description, xalign=0, wrap=True, lines=3, max_width_chars=26,
+                     ellipsize=3, css_classes=["dim-label"], vexpand=True, valign=Gtk.Align.START)
+    card.append(desc)
+    summary = Gtk.Box()
+    summary.append(module_summary(store, cls.id))
+    card.append(summary)
+
+    def on_switch(sw, _pspec):
+        if cls.id == AwakeModule.id:
+            set_awake(store, sw.get_active())
+        else:
+            store.set(cls.id, "enabled", sw.get_active())
+        summary.remove(summary.get_first_child())
+        summary.append(module_summary(store, cls.id))
+    switch.connect("notify::active", on_switch)
+    card.set_cursor_from_name("pointer")
+    card.module_id = cls.id
+    return card
+
+
+def service_status(on_change=None) -> Gtk.Widget:
+    """A 'Running'/'Stopped' pill with a Start/Stop button."""
+    box = Gtk.Box(spacing=10, valign=Gtk.Align.CENTER)
+    pill = Gtk.Label(css_classes=["pill"])
+    button = Gtk.Button(valign=Gtk.Align.CENTER, css_classes=["pill"])
+    box.append(pill)
+    box.append(button)
 
     def refresh() -> bool:
         running = service.is_active()
-        status.set_subtitle("Running" if running else "Stopped")
+        pill.set_label("● Running" if running else "● Stopped")
+        pill.set_css_classes(["pill", "running" if running else "stopped"])
         button.set_label("Stop" if running else "Start")
-        for cls in ("suggested-action", "destructive-action"):
-            button.remove_css_class(cls)
-        button.add_css_class("destructive-action" if running else "suggested-action")
-        autostart.handler_block(autostart_handler)
-        autostart.set_active(service.is_enabled())
-        autostart.handler_unblock(autostart_handler)
+        button.set_css_classes(["pill"] if running else ["pill", "suggested-action"])
+        if on_change:
+            on_change(running)
         return GLib.SOURCE_REMOVE
 
-    def on_button(_btn) -> None:
+    def on_click(_b):
         service.stop() if service.is_active() else service.start()
         GLib.timeout_add(600, refresh)  # give systemd a moment to change state
 
-    def on_autostart(row, _pspec) -> None:
-        service.set_autostart(row.get_active())
-        refresh()
-
-    button.connect("clicked", on_button)
-    autostart_handler = autostart.connect("notify::active", on_autostart)
+    button.connect("clicked", on_click)
     refresh()
-    return page
+    return box
 
 
-def touchpad_page(store: SettingsStore) -> Adw.PreferencesPage:
+def dashboard_page(store: SettingsStore, navigate) -> Gtk.Widget:
+    content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18,
+                      margin_top=24, margin_bottom=32, margin_start=12, margin_end=12)
+
+    hero = Gtk.Box(spacing=20, css_classes=["hero"])
+    hero.append(app_icon(72))
+    text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER,
+                   hexpand=True)
+    text.append(Gtk.Label(label="Knobu", xalign=0, css_classes=["title-1"]))
+    text.append(Gtk.Label(label="Power tools for your Ubuntu desktop.", xalign=0,
+                          css_classes=["dim-label", "hero-subtitle"]))
+    hero.append(text)
+    hero.append(service_status())
+    content.append(hero)
+
+    for n in input_notice():
+        content.append(n)
+
+    content.append(Gtk.Label(label="Modules", xalign=0, css_classes=["title-4"]))
+    grid = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
+                       min_children_per_line=1, max_children_per_line=3,
+                       activate_on_single_click=True, column_spacing=12, row_spacing=12,
+                       css_classes=["module-grid"])
+    for cls in modules.MODULES:
+        grid.append(module_card(store, cls))
+    grid.connect("child-activated", lambda _g, child: navigate(child.get_child().module_id))
+    content.append(grid)
+
+    clamp = Adw.Clamp(maximum_size=980, tightening_threshold=700, child=content)
+    return Gtk.ScrolledWindow(child=clamp, hscrollbar_policy=Gtk.PolicyType.NEVER)
+
+
+# ---------------------------------------------------------------------- module pages
+
+def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = TouchpadModule.id
-    page = Adw.PreferencesPage()
-
-    top = Adw.PreferencesGroup(description=TouchpadModule.description)
-    top.add(switch_row(store, mid, "enabled", "Enable Touchpad Gestures"))
-    page.add(top)
+    page = ModulePage(store, TouchpadModule, notices=input_notice())
 
     volume = Adw.PreferencesGroup(title="Volume", description="Slide up or down to change volume.")
     volume.add(switch_row(store, mid, "volume_drag", "Slide to change volume"))
@@ -119,26 +212,26 @@ def touchpad_page(store: SettingsStore) -> Adw.PreferencesPage:
     return page
 
 
-def keyboard_page(store: SettingsStore) -> Adw.PreferencesPage:
+def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = KeyboardModule.id
-    page = Adw.PreferencesPage()
-
+    notices = input_notice()
     if not permissions.can_write_uinput():
-        page.add(command_warning(
+        notices.append(notice(
             "One-time setup needed",
             "Remapping needs permission to create a virtual keyboard. Run this in a terminal:",
             permissions.FIX_UINPUT))
-
-    top = Adw.PreferencesGroup(description=KeyboardModule.description)
-    top.add(switch_row(store, mid, "enabled", "Enable Keyboard Manager"))
-    page.add(top)
+    page = ModulePage(store, KeyboardModule, notices=notices)
 
     group = Adw.PreferencesGroup(
         title="Remaps",
         description="A single key changes everywhere, even inside shortcuts "
                     "(e.g. CapsLock → Ctrl). A shortcut only changes as a whole.")
-    add = Gtk.Button(icon_name="list-add-symbolic", tooltip_text="Add a remap",
-                     css_classes=["flat"], valign=Gtk.Align.CENTER)
+    add = Gtk.Button(valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"],
+                     tooltip_text="Add a remap")
+    add_box = Gtk.Box(spacing=6)
+    add_box.append(Gtk.Image(icon_name="list-add-symbolic"))
+    add_box.append(Gtk.Label(label="Add remap"))
+    add.set_child(add_box)
     group.set_header_suffix(add)
     page.add(group)
     rows: list[Gtk.Widget] = []
@@ -150,12 +243,17 @@ def keyboard_page(store: SettingsStore) -> Adw.PreferencesPage:
         remaps = store.get(mid, "remaps")
         if not remaps:
             rows.append(Adw.ActionRow(title="No remaps yet",
-                                      subtitle="Click + to remap a key or shortcut"))
+                                      subtitle="Add one to change what a key or shortcut does"))
         for text in remaps:
             src, _, dst = text.partition("->")
-            row = Adw.ActionRow(title=f"{keys.pretty(src.strip())}  →  {keys.pretty(dst.strip())}")
+            row = Adw.ActionRow()
+            mapping = Gtk.Box(spacing=10, valign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
+            mapping.append(keycaps(src.strip()))
+            mapping.append(Gtk.Image(icon_name="go-next-symbolic", css_classes=["dim-label"]))
+            mapping.append(keycaps(dst.strip()))
+            row.add_prefix(mapping)
             delete = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remove",
-                                css_classes=["flat"], valign=Gtk.Align.CENTER)
+                                css_classes=["flat", "circular"], valign=Gtk.Align.CENTER)
             delete.connect("clicked", lambda _b, t=text: remove(t))
             row.add_suffix(delete)
             rows.append(row)
@@ -183,16 +281,23 @@ def keyboard_page(store: SettingsStore) -> Adw.PreferencesPage:
     return page
 
 
-def awake_page(store: SettingsStore) -> Adw.PreferencesPage:
+def awake_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = AwakeModule.id
-    page = Adw.PreferencesPage()
-
-    group = Adw.PreferencesGroup(description=AwakeModule.description)
-    toggle = Adw.SwitchRow(title="Keep awake", active=store.get(mid, "enabled"))
     status = Adw.ActionRow(title="Status")
-    group.add(toggle)
-    group.add(status)
-    page.add(group)
+
+    def refresh():
+        minutes.set_sensitive(store.get(mid, "mode") == "timed")
+        status.set_subtitle(awake_status(store))
+
+    def on_toggle(on: bool):
+        set_awake(store, on)
+        refresh()
+
+    # Settings stay usable while off, so a timer can be set up before switching on.
+    page = ModulePage(store, AwakeModule, on_toggle=on_toggle, dim_when_off=False)
+    state = Adw.PreferencesGroup()
+    state.add(status)
+    page.add(state)
 
     timing = Adw.PreferencesGroup(title="Duration")
     modes = ["indefinite", "timed"]
@@ -211,58 +316,35 @@ def awake_page(store: SettingsStore) -> Adw.PreferencesPage:
                           "Otherwise the screen may still turn off while the computer stays awake"))
     page.add(screen)
 
-    def refresh():
-        timed = store.get(mid, "mode") == "timed"
-        minutes.set_sensitive(timed)
-        until = store.get(mid, "until")
-        if not store.get(mid, "enabled"):
-            text = "Off"
-        elif not timed:
-            text = "Awake until you turn it off"
-        elif until > time.time():
-            text = time.strftime("Awake until %H:%M", time.localtime(until))
-        else:
-            text = time.strftime("Timer ended at %H:%M", time.localtime(until))
-        status.set_subtitle(text)
-
-    def restart_timer():
-        if store.get(mid, "mode") == "timed":
-            store.set(mid, "until", time.time() + store.get(mid, "minutes") * 60)
-
-    def on_toggle(row, _pspec):
-        store.set(mid, "enabled", row.get_active())
-        if row.get_active():
-            restart_timer()
-        refresh()
-
     def on_mode(row, _pspec):
         store.set(mid, "mode", modes[row.get_selected()])
-        restart_timer()
+        restart_awake_timer(store)
         refresh()
 
     def on_minutes(row, _pspec):
         store.set(mid, "minutes", int(row.get_value()))
-        restart_timer()
+        restart_awake_timer(store)
         refresh()
 
-    toggle.connect("notify::active", on_toggle)
     mode.connect("notify::selected", on_mode)
     minutes.connect("notify::value", on_minutes)
     refresh()
     return page
 
 
-def colorpicker_page(store: SettingsStore) -> Adw.PreferencesPage:
+def colorpicker_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = ColorPickerModule.id
-    page = Adw.PreferencesPage()
-    group = Adw.PreferencesGroup(description=ColorPickerModule.description)
-    group.add(switch_row(store, mid, "enabled", "Enable Color Picker"))
+    page = ModulePage(store, ColorPickerModule)
+    group = Adw.PreferencesGroup(title="Picking")
     group.add(shortcut_row(store, mid, "hotkey", "Shortcut"))
     group.add(choice_row(store, mid, "format", "Copy as", "Copied automatically after picking",
                          [("hex", "HEX  #1E90FF"), ("rgb", "RGB  rgb(30, 144, 255)"),
                           ("hsl", "HSL  hsl(210, 100%, 56%)")]))
-    group.add(button_row("Try it", "Pick a colour", lambda: launch.knobu("pick-color")))
     page.add(group)
+    try_it = Adw.PreferencesGroup()
+    try_it.add(button_row("Try it now", "Pick a colour", lambda: launch.knobu("pick-color"),
+                          "Opens the picker without the shortcut"))
+    page.add(try_it)
     return page
 
 
@@ -273,34 +355,75 @@ def tesseract_languages() -> list[str]:
     return [line.strip() for line in out.splitlines()[1:] if line.strip() and line.strip() != "osd"]
 
 
-def textextractor_page(store: SettingsStore) -> Adw.PreferencesPage:
+def textextractor_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = TextExtractorModule.id
-    page = Adw.PreferencesPage()
     languages = tesseract_languages()
-    if not languages:
-        page.add(command_warning(
-            "Text recognition isn't installed",
-            "Text Extractor uses Tesseract to read text. Install it with:", INSTALL_TESSERACT))
+    notices = [] if languages else [notice(
+        "Text recognition isn't installed",
+        "Text Extractor uses Tesseract to read text. Install it with:", INSTALL_TESSERACT)]
+    page = ModulePage(store, TextExtractorModule, notices=notices)
 
-    group = Adw.PreferencesGroup(description=TextExtractorModule.description)
-    group.add(switch_row(store, mid, "enabled", "Enable Text Extractor"))
+    group = Adw.PreferencesGroup(title="Extracting")
     group.add(shortcut_row(store, mid, "hotkey", "Shortcut"))
     if languages:
         group.add(choice_row(store, mid, "language", "Language",
                              "More with: sudo apt install tesseract-ocr-<language code>",
                              [(lang, lang) for lang in languages]))
-    group.add(button_row("Try it", "Select an area", lambda: launch.knobu("extract-text")))
     page.add(group)
+    try_it = Adw.PreferencesGroup()
+    try_it.add(button_row("Try it now", "Select an area", lambda: launch.knobu("extract-text"),
+                          "Opens the selection without the shortcut"))
+    page.add(try_it)
     return page
 
 
-# (id, title, icon, builder). Add new module pages here.
+# ---------------------------------------------------------------------- General
+
+def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    page = Adw.PreferencesPage()
+    for n in input_notice():
+        page.add(n)
+
+    hero = Gtk.Box(spacing=18, css_classes=["hero"])
+    hero.append(tile("knobu-general-symbolic", "large"))
+    text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, valign=Gtk.Align.CENTER,
+                   hexpand=True)
+    text.append(Gtk.Label(label="General", xalign=0, css_classes=["title-2"]))
+    text.append(Gtk.Label(label="Knobu runs quietly in the background so gestures, shortcuts "
+                                "and remaps work everywhere.", xalign=0, wrap=True,
+                          css_classes=["dim-label", "hero-subtitle"]))
+    hero.append(text)
+    header = Adw.PreferencesGroup()
+    header.add(hero)
+    page.add(header)
+
+    group = Adw.PreferencesGroup(title="Background service")
+    status = Adw.ActionRow(title="Status")
+    status.add_suffix(service_status())
+    autostart = Adw.SwitchRow(title="Start at login",
+                              subtitle="Start Knobu automatically when you log in")
+    autostart.set_active(service.is_enabled())
+    autostart.connect("notify::active", lambda row, _p: service.set_autostart(row.get_active()))
+    group.add(status)
+    group.add(autostart)
+    page.add(group)
+
+    about = Adw.PreferencesGroup(title="About")
+    about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),
+                         "Version, credits and license"))
+    page.add(about)
+    return page
+
+
+# (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
-    ("general", "General", "preferences-system-symbolic", general_page),
-    (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page),
-    (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page),
-    (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page),
-    (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page),
+    ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
+    (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
+    (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
+    (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
+    (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
+     "modules"),
     (TextExtractorModule.id, TextExtractorModule.name, TextExtractorModule.icon,
-     textextractor_page),
+     textextractor_page, "modules"),
+    ("general", "General", "knobu-general-symbolic", general_page, "bottom"),
 ]
