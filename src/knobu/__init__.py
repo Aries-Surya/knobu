@@ -3,4 +3,4 @@
 __version__ = "0.1.0"
 
 # Reverse-DNS application ID used by GTK, the .desktop file and the icon.
-APP_ID = "io.github.knobu.Knobu"
+APP_ID = "io.github.Saad_1719.Knobu"
