@@ -54,15 +54,17 @@ knobu awake off
 
 ### Color Picker
 
-Press **Super+Shift+C** and click any pixel: the colour is copied (HEX, RGB or HSL)
-and a notification shows it with a swatch. Uses your desktop's own colour picker.
+Press **Super+Shift+C** and click any pixel: the colour is copied (HEX, RGB or HSL),
+and a small window shows it in all three formats with your recent colours. Picking uses
+your desktop's own colour picker; on KDE a small magnifier follows the cursor so you
+can see exactly which pixel you're on, like PowerToys on Windows.
 
 ### Text Extractor
 
 Press **Super+Shift+T** and drag over the text on screen: it's copied as soon as you
-let go, and a notification shows what was copied. Uses your desktop's own area
-selector (Spectacle on KDE, with its own settings so yours stay untouched) and
-Tesseract OCR; install more languages with `sudo apt install tesseract-ocr-<lang>`.
+let go, and a window shows the text so you can check or edit it. No screenshot tool
+or menus appear: the screen looks unchanged until you drag. Uses Tesseract OCR;
+install more languages with `sudo apt install tesseract-ocr-<lang>`.
 
 Both shortcuts can be changed in the settings app. They're also in the app menu:
 right-click Knobu's icon.
@@ -92,12 +94,6 @@ right-click Knobu's icon.
   sudo apt install tesseract-ocr
   ```
 
-- For **Color Picker** and **Text Extractor** on Wayland: `wl-clipboard`, so Knobu can
-  copy without opening a window (KDE also works without it, through Klipper):
-
-  ```bash
-  sudo apt install wl-clipboard
-  ```
 
 - GTK 4 and libadwaita for the settings app (preinstalled on Ubuntu; on other flavours):
 
@@ -149,11 +145,10 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
 
 - `src/knobu/modules/`: one module per tool, registered in `modules/__init__.py`.
 - `src/knobu/system/`: desktop-neutral helpers: audio (`wpctl`/`pactl`), media players
-  (MPRIS), global shortcuts, key names, xdg-desktop-portal, clipboard, notifications,
-  permissions.
-- `src/knobu/ui/`: the settings app (`app.py`, one page per module in `pages.py`).
-- `src/knobu/tools/`: one-shot tools (Color Picker, Text Extractor) that use the desktop's
-  own picker/selector, copy the result and confirm with a notification.
+  (MPRIS), global shortcuts, key names, xdg-desktop-portal, notifications, permissions.
+- `src/knobu/ui/`: the settings app (`app.py`, one page per module in `pages.py`) and the
+  tool windows: `colorpicker.py` with its KWin-driven `magnifier.py`, and
+  `textextractor.py` with its quiet `selection.py`.
 
 ## Development
 
