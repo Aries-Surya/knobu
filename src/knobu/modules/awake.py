@@ -18,7 +18,7 @@ class AwakeModule(Module):
     id = "awake"
     name = "Awake"
     description = "Keep your computer awake without changing power settings."
-    icon = "weather-clear-symbolic"
+    icon = "knobu-awake-symbolic"
     defaults = {
         "enabled": False,      # the on/off toggle itself
         "mode": "indefinite",  # or "timed"

@@ -82,7 +82,7 @@ class TouchpadModule(Module):
     id = "touchpad"
     name = "Touchpad Gestures"
     description = "Slide fingers on the touchpad to change volume, and tap to mute or control media."
-    icon = "input-touchpad-symbolic"
+    icon = "knobu-touchpad-symbolic"
     defaults = {
         "enabled": True,
         "fingers": 3,  # finger count for the volume slide

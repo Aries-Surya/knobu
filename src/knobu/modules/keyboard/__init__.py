@@ -20,7 +20,7 @@ class KeyboardModule(Module):
     id = "keyboard"
     name = "Keyboard Manager"
     description = "Remap keys and shortcuts on every keyboard, in every app."
-    icon = "input-keyboard-symbolic"
+    icon = "knobu-keyboard-symbolic"
     defaults = {"enabled": True, "remaps": []}
 
     def run(self, stop: threading.Event) -> None:
