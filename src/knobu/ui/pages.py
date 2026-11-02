@@ -14,7 +14,7 @@ from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
-from knobu.ui.textextractor import INSTALL_TESSERACT
+from knobu.tools.textextractor import INSTALL_TESSERACT
 from knobu.ui.widgets import choice_row, record_shortcut, shortcut_row, spin_row, switch_row
 
 

@@ -1,4 +1,4 @@
-"""Modules that open a Knobu tool window from a global shortcut."""
+"""Modules that start a Knobu tool from a global shortcut."""
 
 import threading
 
