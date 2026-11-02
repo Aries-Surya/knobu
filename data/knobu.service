@@ -1,0 +1,17 @@
+# systemd user unit shipped by the Knobu package. It isn't enabled for anyone by
+# default: each user turns it on in the Knobu app or with `knobu enable`.
+[Unit]
+Description=Knobu background service
+Documentation=https://github.com/Saad-1719/knobu
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/knobu daemon
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target

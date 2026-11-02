@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 
 UNIT = "knobu.service"
+# Installed by the .deb package (from data/knobu.service).
+PACKAGED_UNIT = Path("/usr/lib/systemd/user") / UNIT
 
 UNIT_TEMPLATE = """\
 [Unit]
@@ -34,8 +36,10 @@ def _systemctl(*args: str) -> subprocess.CompletedProcess:
 
 
 def install_unit() -> None:
-    """Write the user unit pointing at the Python that runs Knobu right now
-    (a venv during development, /usr/bin/python3 when installed as a package)."""
+    """Write a user unit pointing at the Python that runs Knobu right now (e.g. a venv
+    when running from source). Packaged installs already ship one, so skip it there."""
+    if PACKAGED_UNIT.exists():
+        return
     path = unit_path()
     content = UNIT_TEMPLATE.format(python=sys.executable)
     if not path.exists() or path.read_text() != content:
@@ -45,6 +49,8 @@ def install_unit() -> None:
 
 
 def uninstall_unit() -> None:
+    """Stop and disable the service; only removes the user's own copy of the unit,
+    never the packaged one."""
     _systemctl("disable", "--now", UNIT)
     unit_path().unlink(missing_ok=True)
     _systemctl("daemon-reload")
