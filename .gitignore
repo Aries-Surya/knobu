@@ -15,3 +15,6 @@ debian/*.substvars
 debian/*.debhelper.log
 debian/*.debhelper
 .pybuild/
+/brag-output
+# Launch video and promo drafts
+brag-output/

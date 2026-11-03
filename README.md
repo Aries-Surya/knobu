@@ -1,12 +1,49 @@
+<div align="center">
+
 # Knobu
 
-**PowerToys-style utilities for Ubuntu.**
+**Windows has PowerToys. Ubuntu has Knobu.**
 
-Fully supported on **Kubuntu (KDE Plasma 6)**. **Ubuntu (GNOME)** support is in beta.
-Xubuntu, Lubuntu and Ubuntu MATE are coming soon.
+Touchpad volume gestures, key remapping, a colour picker, on-screen text copying and
+"keep awake", all in one native GTK4 app. Works on Wayland and X11.
 
-Knobu adds small, switchable power tools to your desktop. Each tool is a *module* you
-can turn on or off in the Knobu settings app.
+[![Latest release](https://img.shields.io/github/v/release/Saad-1719/knobu?color=E95420)](https://github.com/Saad-1719/knobu/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/github/license/Saad-1719/knobu)](LICENSE)
+[![Kubuntu: supported](https://img.shields.io/badge/Kubuntu-supported-1d99f3)](#supported-desktops)
+[![Ubuntu: beta](https://img.shields.io/badge/Ubuntu-beta-E95420)](#supported-desktops)
+
+[Website](https://knobu.saaadi.dev) · [Download](https://github.com/Saad-1719/knobu/releases/latest) · [PowerToys → Knobu](https://knobu.saaadi.dev/powertoys-alternative-linux) · [Report a bug](https://github.com/Saad-1719/knobu/issues)
+
+<img src="docs/demo.gif" alt="Knobu demo: three-finger volume slide, CapsLock to Ctrl remap, colour picker, text extractor and Awake" width="800">
+
+</div>
+
+## Quick install
+
+On Ubuntu or Kubuntu 24.04 or newer:
+
+```bash
+wget https://github.com/Saad-1719/knobu/releases/download/v0.1.0/knobu_0.1.0_all.deb
+sudo apt install ./knobu_0.1.0_all.deb
+sudo usermod -aG input $USER   # then log out and back in
+```
+
+Open **Knobu** from the app menu and turn on the background service. Details are in
+[Install](#install) and [Requirements](#requirements).
+
+## What you get
+
+| Tool | What it does |
+|---|---|
+| 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
+| ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
+| ☕ **Awake** | Keep the computer awake for a while, without touching power settings |
+| 🎨 **Color Picker** | Super+Shift+C, click any pixel, and its HEX/RGB/HSL is copied |
+| 📝 **Text Extractor** | Super+Shift+T, drag over any text on screen, and it's copied (OCR) |
+
+Each tool is a *module* you can turn on or off in the Knobu settings app.
+
+> If Knobu saves you a trip back to Windows, a ⭐ helps other people find it.
 
 ## Supported desktops
 
@@ -129,8 +166,6 @@ The package also installs a udev rule that lets members of the `input` group cre
 virtual keyboards, which Keyboard Manager needs. You still need to be in that group
 (see [Requirements](#requirements)).
 
-A PPA for `apt install knobu` is planned.
-
 ### Building the package
 
 ```bash
@@ -210,7 +245,7 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
 - Tray icon for quick toggles (Awake, Keyboard Manager)
 - Caps Lock / Num Lock LEDs while Keyboard Manager is remapping
 - More gestures (brightness, edge slides)
-- `.deb` package and a PPA; Flatpak/Snap
+- Flatpak/Snap
 - More modules, PowerToys-style (ideas welcome!)
 
 ## License
