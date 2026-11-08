@@ -248,6 +248,14 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
 - Flatpak/Snap
 - More modules, PowerToys-style (ideas welcome!)
 
+## AI Usage Disclosure
+
+Generative AI tools were used during the development of Knobu to assist with software engineering tasks, including code generation, implementation, debugging, and documentation.
+
+AI-generated contributions were reviewed, tested, and integrated as part of the development process. The project is maintained as open-source software under the GNU GPL v3.0 or later license.
+
+The use of AI tools does not change the project's licensing terms.
+
 ## License
 
 Knobu is free software, licensed under the [GNU GPL v3.0 or later](LICENSE).
