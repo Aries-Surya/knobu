@@ -7,12 +7,12 @@
 Touchpad volume gestures, key remapping, a colour picker, on-screen text copying and
 "keep awake", all in one native GTK4 app. Works on Wayland and X11.
 
-[![Latest release](https://img.shields.io/github/v/release/Saad-1719/knobu?color=E95420)](https://github.com/Saad-1719/knobu/releases/latest)
-[![License: GPL-3.0](https://img.shields.io/github/license/Saad-1719/knobu)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Aries-Surya/knobu?color=E95420)](https://github.com/Aries-Surya/knobu/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/github/license/Aries-Surya/knobu)](LICENSE)
 [![Kubuntu: supported](https://img.shields.io/badge/Kubuntu-supported-1d99f3)](#supported-desktops)
 [![Ubuntu: beta](https://img.shields.io/badge/Ubuntu-beta-E95420)](#supported-desktops)
 
-[Website](https://knobu.saaadi.dev) · [Download](https://github.com/Saad-1719/knobu/releases/latest) · [PowerToys → Knobu](https://knobu.saaadi.dev/powertoys-alternative-linux) · [Report a bug](https://github.com/Saad-1719/knobu/issues)
+[Download](https://github.com/Aries-Surya/knobu/releases/latest) · [Report a bug](https://github.com/Aries-Surya/knobu/issues)
 
 <img src="docs/demo.gif" alt="Knobu demo: three-finger volume slide, CapsLock to Ctrl remap, colour picker, text extractor and Awake" width="800">
 

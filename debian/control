@@ -1,7 +1,7 @@
 Source: knobu
 Section: utils
 Priority: optional
-Maintainer: saad-1719 <chsaad1407@gmail.com>
+Maintainer: Surya Prakash <suryaprakash.g.official@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                dh-sequence-python3,
                pybuild-plugin-pyproject,

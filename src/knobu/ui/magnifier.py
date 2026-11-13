@@ -20,7 +20,7 @@ ZOOM = 9        # on-screen size of each pixel
 LABEL = 30      # height of the colour label under the zoom
 OFFSET = 24     # gap between cursor and magnifier
 
-INTERFACE = "io.github.Saad_1719.Knobu.Magnifier"
+INTERFACE = "io.github.Aries_Surya.Knobu.Magnifier"
 INTERFACE_XML = f"""<node><interface name="{INTERFACE}">
   <method name="Cursor"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
 </interface></node>"""
