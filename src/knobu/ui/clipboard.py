@@ -75,6 +75,22 @@ CLIP_CSS = """
   background-color: #383842;
   color: #ffffff;
 }
+
+scrollbar {
+  background: transparent;
+  border: none;
+}
+
+scrollbar slider {
+  min-width: 6px;
+  min-height: 28px;
+  border-radius: 4px;
+  background-color: #3e3e48;
+}
+
+scrollbar slider:hover {
+  background-color: #555562;
+}
 """
 
 
@@ -148,10 +164,11 @@ class ClipboardWindow(Gtk.Window):
         self.search.connect("search-changed", lambda _e: self._refresh_list())
         box.append(self.search)
 
-        # Scrollable list of clips
-        self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        # Scrollable list of clips with dedicated non-overlapping scrollbar gutter
+        self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_end=6)
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
         scroll.set_child(self.list_box)
         box.append(scroll)
 
