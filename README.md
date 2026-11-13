@@ -293,6 +293,9 @@ AI-generated contributions were reviewed, tested, and integrated as part of the 
 
 The use of AI tools does not change the project's licensing terms.
 
-## License
+## License & Attribution
 
 Knobu is free software, licensed under the [GNU GPL v3.0 or later](LICENSE).
+
+- **Original Author**: [saad-1719](https://github.com/Saad-1719/knobu) (Copyright © 2026)
+- **Fork Maintainer**: [Surya Prakash](https://github.com/Aries-Surya/knobu) (Copyright © 2026)
