@@ -23,13 +23,15 @@ Touchpad volume gestures, key remapping, a colour picker, on-screen text copying
 On Ubuntu or Kubuntu 24.04 or newer:
 
 ```bash
-wget https://github.com/Saad-1719/knobu/releases/download/v0.1.0/knobu_0.1.0_all.deb
-sudo apt install ./knobu_0.1.0_all.deb
+# Download and install the latest release package
+wget https://github.com/Aries-Surya/knobu/releases/latest/download/knobu_all.deb -O /tmp/knobu_latest.deb || \
+wget $(curl -s https://api.github.com/repos/Aries-Surya/knobu/releases/latest | grep "browser_download_url.*deb" | cut -d '"' -f 4) -O /tmp/knobu_latest.deb
+sudo apt install /tmp/knobu_latest.deb
 sudo usermod -aG input $USER   # then log out and back in
 ```
 
 Open **Knobu** from the app menu and turn on the background service. Details are in
-[Install](#install) and [Requirements](#requirements).
+[Install](#install), [Updating](#updating), and [Requirements](#requirements).
 
 ## What you get
 
@@ -152,11 +154,11 @@ right-click Knobu's icon.
 
 ## Install
 
-Download the latest `.deb` from the releases page and install it with apt, which pulls in
+Download the latest `.deb` from the [Releases page](https://github.com/Aries-Surya/knobu/releases/latest) and install it with apt, which pulls in
 the dependencies:
 
 ```bash
-sudo apt install ./knobu_0.1.0_all.deb
+sudo apt install ./knobu_*_all.deb
 ```
 
 Then open **Knobu** from the app menu and turn on the background service on the General
@@ -165,6 +167,41 @@ page. Each user turns it on for themselves; nothing starts automatically after i
 The package also installs a udev rule that lets members of the `input` group create
 virtual keyboards, which Keyboard Manager needs. You still need to be in that group
 (see [Requirements](#requirements)).
+
+## Updating
+
+When a new version is published to GitHub Releases, you can update without losing any configuration or clipboard history:
+
+### Option A: One-line Terminal Upgrade (Recommended)
+```bash
+# Fetch and install the latest release .deb
+wget $(curl -s https://api.github.com/repos/Aries-Surya/knobu/releases/latest | grep "browser_download_url.*deb" | cut -d '"' -f 4) -O /tmp/knobu_latest.deb
+sudo apt install --reinstall /tmp/knobu_latest.deb
+
+# Restart your user service
+systemctl --user restart knobu.service
+
+# Verify installed version
+knobu --version
+```
+
+### Option B: Using GitHub CLI
+```bash
+gh release download --repo Aries-Surya/knobu --pattern "*.deb" --dir /tmp --clobber
+sudo apt install --reinstall /tmp/knobu_*_all.deb
+systemctl --user restart knobu.service
+knobu --version
+```
+
+### Option C: Web Browser
+1. Download the latest `.deb` asset from [GitHub Releases](https://github.com/Aries-Surya/knobu/releases/latest).
+2. Open terminal in your download directory and run:
+   ```bash
+   sudo apt install --reinstall ./knobu_*_all.deb
+   systemctl --user restart knobu.service
+   ```
+
+*(Your settings in `~/.config/knobu/` and clipboard history in `~/.local/share/knobu/` are automatically preserved during upgrades.)*
 
 ### Building the package
 
