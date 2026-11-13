@@ -5,6 +5,21 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/Aries-Surya/knobu/compare/v0.2.0...v0.3.0) (2026-11-13)
+
+
+### Features
+
+* **clipboard:** add clipboard history module, copied image support, settings dashboard, and CI/CD release pipeline ([531a47e](https://github.com/Aries-Surya/knobu/commit/531a47e12bde110f550591554b46e26218c536cb))
+* **clipboard:** add exclusive shortcut grab to swallow Super+V pass-through ([828ef2e](https://github.com/Aries-Surya/knobu/commit/828ef2eb8792e1369e600907e94711339b3e61fa))
+
+
+### Bug Fixes
+
+* **ci:** stage deb packages in workspace dist/ directory for upload-artifact ([6f7ea85](https://github.com/Aries-Surya/knobu/commit/6f7ea85e889e0156a56270fa028fd59c1373574a))
+* **hotkeys:** query live device active_keys directly to eliminate ghost modifier paste ([4497466](https://github.com/Aries-Surya/knobu/commit/44974663d0ebbd39a5527d2244cd93aa81e1fea6))
+* **ui:** escape markup entities in preferences group and format unassigned hotkeys ([55b9e65](https://github.com/Aries-Surya/knobu/commit/55b9e650373dd7f7e677b17ce84f405733b24259))
+
 ## [0.2.0] - 2026-11-13
 
 ### Added
