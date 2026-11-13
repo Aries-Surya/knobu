@@ -17,6 +17,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  NODE_OPTIONS: "--no-deprecation"
+
 jobs:
   # ----------------------------------------------------------------------------
   # JOB 1: Baseline Quality Gate & Debian Package Verification
