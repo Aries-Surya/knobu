@@ -32,6 +32,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            build-essential \
             debhelper-compat \
             dh-sequence-python3 \
             pybuild-plugin-pyproject \
@@ -96,6 +97,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            build-essential \
             debhelper-compat \
             dh-sequence-python3 \
             pybuild-plugin-pyproject \

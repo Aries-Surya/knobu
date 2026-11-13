@@ -23,8 +23,8 @@ Touchpad volume gestures, key remapping, a colour picker, on-screen text copying
 On Ubuntu or Kubuntu 24.04 or newer:
 
 ```bash
-wget https://github.com/Saad-1719/knobu/releases/download/v0.1.0/knobu_0.1.0_all.deb
-sudo apt install ./knobu_0.1.0_all.deb
+wget https://github.com/Saad-1719/knobu/releases/download/v0.2.0/knobu_0.2.0_all.deb
+sudo apt install ./knobu_0.2.0_all.deb
 sudo usermod -aG input $USER   # then log out and back in
 ```
 
@@ -156,7 +156,7 @@ Download the latest `.deb` from the releases page and install it with apt, which
 the dependencies:
 
 ```bash
-sudo apt install ./knobu_0.1.0_all.deb
+sudo apt install ./knobu_0.2.0_all.deb
 ```
 
 Then open **Knobu** from the app menu and turn on the background service on the General
