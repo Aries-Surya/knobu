@@ -1,15 +1,3 @@
-knobu (0.2.0) questing; urgency=medium
-
-  * Bump version to 0.2.0.
-  * Clipboard History module:
-    - Searchable floating clipboard manager dashboard with native Adwaita UI.
-    - Full image clip support (capture, live thumbnails, image paste).
-    - URL tracking parameter sanitization and sensitive data detection.
-    - Hardware-level exclusive shortcut grab to prevent key leak to active windows.
-    - Sleek scrollbar gutter layout with non-overlay scrolling.
-
- -- Surya Prakash <suryaprakash.g.official@gmail.com>  Fri, 13 Nov 2026 10:30:00 +0530
-
 knobu (0.1.0) questing; urgency=medium
 
   * Initial release.
