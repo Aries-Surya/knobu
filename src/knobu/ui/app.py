@@ -110,7 +110,14 @@ class MainWindow(Adw.ApplicationWindow):
             if other is not listbox:
                 other.unselect_all()
         _id, title, _icon, builder, _section = next(p for p in PAGES if p[0] == row.page_id)
-        view = Adw.ToolbarView(content=builder(self.store, self.navigate))
+        try:
+            content = builder(self.store, self.navigate)
+        except Exception:
+            import traceback
+            import logging
+            logging.getLogger("knobu").exception("Failed to build page %s", row.page_id)
+            return
+        view = Adw.ToolbarView(content=content)
         view.add_top_bar(Adw.HeaderBar(show_title=row.page_id != "dashboard"))
         self.split.set_content(Adw.NavigationPage(title=title, child=view))
         self.split.set_show_content(True)

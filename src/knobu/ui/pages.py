@@ -423,7 +423,7 @@ def clipboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     storage = ClipboardStorage()
 
     # 1. Overview & Statistics Group
-    stats_group = Adw.PreferencesGroup(title="Status & Storage")
+    stats_group = Adw.PreferencesGroup(title="Status and Storage")
     stats = storage.get_stats()
     status_row = Adw.ActionRow(use_markup=False, title="Clipboard database")
     status_row.set_subtitle(f"{stats['total']} clips saved ({stats['pinned']} pinned, {stats['images']} images)")
@@ -454,7 +454,7 @@ def clipboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page.add(content_group)
 
     # 4. Sanitization & Privacy Group
-    sanit_group = Adw.PreferencesGroup(title="Sanitization & Privacy")
+    sanit_group = Adw.PreferencesGroup(title="Sanitization and Privacy")
     sanit_group.add(switch_row(store, mid, "clean_urls", "Clean tracking URLs",
                                "Strip tracking parameters (utm_source, fbclid, gclid, etc.) when copying links"))
     sanit_group.add(switch_row(store, mid, "strip_whitespace", "Strip trailing whitespace",

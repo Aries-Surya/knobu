@@ -128,6 +128,9 @@ def tile(icon: str, size: str = "small") -> Gtk.Widget:
 def keycaps(shortcut: str) -> Gtk.Widget:
     """'super+shift+c' -> [Super] [Shift] [C] as keyboard keys."""
     box = Gtk.Box(spacing=4, valign=Gtk.Align.CENTER)
+    if not shortcut:
+        box.append(Gtk.Label(label="(none)", css_classes=["dim-label"]))
+        return box
     for part in keys.pretty(shortcut).split("+"):
         box.append(Gtk.Label(label=part, css_classes=["keycap"]))
     return box
