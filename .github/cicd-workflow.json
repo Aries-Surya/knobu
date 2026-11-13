@@ -1,0 +1,52 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Knobu CI/CD & Automated Release Pipeline",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "trigger", "label": "Git Events" },
+    { "id": "job1", "label": "Job 1: CI & Test Gate" },
+    { "id": "job2", "label": "Job 2: Semantic Release" },
+    { "id": "job3", "label": "Job 3: Release & Packaging" }
+  ],
+  "phases": [
+    { "id": "p_trigger", "label": "Trigger", "fromCol": 0, "toCol": 0 },
+    { "id": "p_ci", "label": "Build & Test", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "p_version", "label": "Versioning", "fromCol": 3, "toCol": 3 },
+    { "id": "p_publish", "label": "Publish & Release", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": [
+    "git_push",
+    "ci_deps",
+    "ci_build",
+    "rp_evaluate",
+    "build_release_deb",
+    "gh_release_asset"
+  ],
+  "nodes": [
+    { "id": "git_push", "lane": "trigger", "col": 0, "type": "frontend", "label": "Git Push", "sublabel": "main / PR" },
+    { "id": "ci_deps", "lane": "job1", "col": 1, "type": "backend", "label": "Setup Apt", "sublabel": "build tools" },
+    { "id": "ci_build", "lane": "job1", "col": 2, "type": "backend", "label": "Build & Test", "sublabel": "package + test", "tag": "gate" },
+    { "id": "ci_artifact", "lane": "job1", "col": 3, "type": "cloud", "label": "CI Artifact", "sublabel": "dist/*.deb" },
+    { "id": "rp_evaluate", "lane": "job2", "col": 3, "type": "security", "label": "Release Please", "sublabel": "version check", "tag": "main" },
+    { "id": "rp_pr", "lane": "job2", "col": 4, "type": "external", "label": "Release PR", "sublabel": "version bump" },
+    { "id": "build_release_deb", "lane": "job3", "col": 4, "type": "backend", "label": "Release Deb", "sublabel": "compile tag" },
+    { "id": "gh_release_asset", "lane": "job3", "col": 5, "type": "cloud", "label": "GH Release", "sublabel": "upload deb", "tag": "publish" }
+  ],
+  "edges": [
+    { "from": "git_push", "to": "ci_deps", "label": "triggers" },
+    { "from": "ci_deps", "to": "ci_build", "label": "apt ready" },
+    { "from": "ci_build", "to": "ci_artifact", "label": "upload" },
+    { "from": "ci_build", "to": "rp_evaluate", "label": "on push main", "variant": "emphasis" },
+    { "from": "rp_evaluate", "to": "rp_pr", "label": "commits parsed", "role": "branch" },
+    { "from": "rp_evaluate", "to": "build_release_deb", "label": "release merged", "variant": "emphasis" },
+    { "from": "build_release_deb", "to": "gh_release_asset", "label": "upload asset", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Job 1: Quality Gate & Test", "items": ["Runs on every PR and push to main", "Compiles Debian package via dpkg-buildpackage", "Executes all 34 unittests during package verification"] },
+    { "dot": "cyan", "title": "Job 2: Semantic Release", "items": ["Automated by Google Release Please", "Analyzes conventional commits (feat, fix, chore)", "Generates release PR and tags vX.Y.Z"] },
+    { "dot": "violet", "title": "Job 3: Production Packaging", "items": ["Triggered automatically upon release tag creation", "Synchronizes debian/changelog to release tag", "Attaches immutable .deb installer to GitHub Release"] }
+  ]
+}
