@@ -37,6 +37,7 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 
 | Tool | What it does |
 |---|---|
+| 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, and tracking URL sanitization |
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
 | ☕ **Awake** | Keep the computer awake for a while, without touching power settings |
@@ -58,6 +59,17 @@ Each tool is a *module* you can turn on or off in the Knobu settings app.
 Found a problem on your desktop? Please open an issue and mention your flavour and version.
 
 ## Modules
+
+### Clipboard History
+
+Press **Super+V** (`Windows+V`) to summon a clean, searchable floating clipboard palette:
+
+- **Rich Content Support**: Stores and previews text and copied graphics (screenshots, PNG, JPEG) with instant dimension tags and live thumbnail rendering.
+- **Privacy & Sanitization**: Automatically strips marketing and tracking parameters (`utm_*`, `fbclid`, `gclid`, etc.) and trims trailing whitespaces on copy.
+- **Password Manager Protection**: Automatically detects and ignores sensitive secrets copied from KeePassXC, 1Password, or password managers with KDE/GNOME privacy flags.
+- **Hardware-Level Exclusive Grab**: Swallows `Super+V` at the evdev hardware layer so underlying applications never receive stray keystrokes or premature paste events.
+- **Persistent Local SQLite**: Stored safely in `~/.local/share/knobu/clipboard.db` with unpinned clip capacity bounds (10–500 clips).
+- **Settings Dashboard**: Configure history limit, allowed types (text/images), privacy filters, keyboard shortcuts, view storage metrics, or clear history in one click.
 
 ### Touchpad Gestures
 

@@ -30,6 +30,8 @@ Description: PowerToys-style utilities for Ubuntu
  Knobu adds small power tools to the desktop, each one a module that can be
  switched on or off in the Knobu settings app:
  .
+  * Clipboard History: floating searchable clipboard palette (Super+V), image
+    clip thumbnails, URL tracking parameter sanitization, and SQLite storage.
   * Touchpad Gestures: slide three fingers to change the volume, tap to mute
     or to play and pause media.
   * Keyboard Manager: remap keys and shortcuts on every keyboard, in every
