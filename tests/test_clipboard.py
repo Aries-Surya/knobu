@@ -110,6 +110,20 @@ class TestClipboard(unittest.TestCase):
         self.assertEqual(mod.defaults["plain_hotkey"], "")
         self.assertTrue(mod.defaults["store_images"])
         self.assertTrue(mod.defaults["store_text"])
+        self.assertTrue(mod.defaults["exclusive"])
+
+    def test_hotkey_service_exclusive(self):
+        from knobu.system import hotkeys, keys
+        svc = hotkeys.HotkeyService()
+        chord = keys.parse("super+v")
+        fired = []
+        bid = svc.register(chord, lambda: fired.append(True), exclusive=True)
+        self.assertIn(bid, svc._bindings)
+        self.assertTrue(svc._bindings[bid][2])
+        swallowed = svc._fire(chord.key, chord.mods)
+        self.assertTrue(swallowed)
+        svc.unregister(bid)
+        self.assertNotIn(bid, svc._bindings)
 
 
 if __name__ == "__main__":

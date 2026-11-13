@@ -59,6 +59,7 @@ class ClipboardModule(Module):
         "store_text": True,
         "store_images": True,
         "direct_paste": True,
+        "exclusive": True,
         "max_items": 50,
     }
 
@@ -71,9 +72,10 @@ class ClipboardModule(Module):
         # Register Super+V strictly for Clipboard History
         try:
             chord = keys.parse(self.settings.get("hotkey", "super+v"))
-            b1 = hotkeys.service().register(chord, lambda: launch.knobu("clipboard"))
+            exclusive = bool(self.settings.get("exclusive", True))
+            b1 = hotkeys.service().register(chord, lambda: launch.knobu("clipboard"), exclusive=exclusive)
             bindings.append(b1)
-            self.log.info("Registered shortcut %s for Clipboard History", keys.pretty(self.settings.get("hotkey", "super+v")))
+            self.log.info("Registered shortcut %s for Clipboard History (exclusive=%s)", keys.pretty(self.settings.get("hotkey", "super+v")), exclusive)
         except ValueError as err:
             self.log.error("Invalid hotkey: %s", err)
 

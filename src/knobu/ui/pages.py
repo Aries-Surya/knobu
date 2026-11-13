@@ -469,6 +469,8 @@ def clipboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                                      "Open the searchable history palette (default Super+V)"))
     shortcuts_group.add(shortcut_row(store, mid, "plain_hotkey", "Paste as Plain Text",
                                      "Optional shortcut to strip rich formatting and paste immediately"))
+    shortcuts_group.add(switch_row(store, mid, "exclusive", "Exclusive shortcut grab",
+                                   "Swallow shortcut so focused applications never receive Super+V"))
     page.add(shortcuts_group)
 
     # 6. Test Group
