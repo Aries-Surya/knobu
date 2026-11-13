@@ -13,6 +13,12 @@ from gi.repository import Adw, GLib, Gtk
 from knobu import modules, service
 from knobu.modules.awake import AwakeModule
 from knobu.modules.clipboard import ClipboardModule
+from knobu.modules.commandbar import (
+    CommandBarModule,
+    check_conflicts,
+    override_os_shortcuts,
+    restore_os_shortcuts,
+)
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
@@ -482,6 +488,63 @@ def clipboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = CommandBarModule.id
+    page = ModulePage(store, CommandBarModule)
+
+    # 1. Shortcut and OS Conflict Management
+    sc_group = Adw.PreferencesGroup(title="Shortcut and OS Integration")
+    sc_group.add(shortcut_row(store, mid, "hotkey", "Command Bar Shortcut",
+                              "Global hotkey to summon the launcher (default Alt+Space)"))
+    sc_group.add(switch_row(store, mid, "exclusive", "Exclusive Hardware Grab",
+                            "Intercept Alt+Space via evdev kernel driver so background apps never see it"))
+    sc_group.add(switch_row(store, mid, "override_os_shortcut", "Auto-override OS Shortcut",
+                            "Automatically unbind conflicting Alt+Space in GNOME / KDE settings on startup"))
+
+    conflicts = check_conflicts()
+    if conflicts:
+        conflict_names = ", ".join(c["name"] for c in conflicts)
+        sc_group.add(button_row("Conflicting OS Shortcut Detected", "Override Now",
+                                lambda: override_os_shortcuts(),
+                                f"Alt+Space is currently bound by: {conflict_names}. Click to free it for Knobu."))
+    else:
+        sc_group.add(button_row("Desktop OS Shortcut Status", "Restore Original",
+                                lambda: restore_os_shortcuts(),
+                                "No desktop environment conflicts active. Click to restore original OS bindings if needed."))
+
+    page.add(sc_group)
+
+    # 2. Search Providers
+    prov_group = Adw.PreferencesGroup(title="Search Providers")
+    prov_group.add(switch_row(store, mid, "enable_apps", "Applications",
+                              "Search and launch desktop applications (.desktop entries)"))
+    prov_group.add(switch_row(store, mid, "enable_calc", "Calculator",
+                              "Evaluate math expressions directly (e.g. 25*4, sqrt(144), 15% of 200)"))
+    prov_group.add(switch_row(store, mid, "enable_shell", "Terminal Commands",
+                              "Run shell commands prefixed with '>' (e.g. > top, > ping 8.8.8.8)"))
+    prov_group.add(switch_row(store, mid, "enable_paths", "Files and Paths",
+                              "Search and navigate folders and files starting with ~/ or /"))
+    prov_group.add(switch_row(store, mid, "enable_web", "Web and URLs",
+                              "Open URLs directly or search the web with '? search query'"))
+    prov_group.add(switch_row(store, mid, "enable_system", "System Actions",
+                              "Quick commands for lock screen, sleep, restart, and Knobu tools"))
+    page.add(prov_group)
+
+    # 3. Preferences
+    disp_group = Adw.PreferencesGroup(title="Display")
+    disp_group.add(spin_row(store, mid, "max_results", "Maximum Results",
+                            "Number of search results to display simultaneously", 3, 15, 1))
+    page.add(disp_group)
+
+    # 4. Actions
+    try_it = Adw.PreferencesGroup(title="Actions")
+    try_it.add(button_row("Try it now", "Open Command Bar", lambda: launch.knobu("command-bar"),
+                          "Launch the floating search bar directly"))
+    page.add(try_it)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
@@ -489,6 +552,7 @@ PAGES = [
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
+    (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),
     (TextExtractorModule.id, TextExtractorModule.name, TextExtractorModule.icon,

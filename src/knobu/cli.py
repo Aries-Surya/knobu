@@ -53,6 +53,8 @@ def main() -> None:
     sub.add_parser("extract-text", help="select a screen area and copy its text")
     sub.add_parser("clipboard", help="open the clipboard history popup")
     sub.add_parser("paste-plain", help="paste current clipboard content as plain text")
+    sub.add_parser("command-bar", help="open the Command Bar quick launcher")
+    sub.add_parser("run", help="alias for command-bar")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -93,6 +95,9 @@ def main() -> None:
             plain = re.sub(r"<[^>]+>", "", raw)
             set_clipboard(plain)
             simulate_paste()
+    elif args.command in ("command-bar", "run"):
+        from knobu.ui.commandbar import main as commandbar_main
+        sys.exit(commandbar_main())
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

@@ -37,6 +37,7 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 
 | Tool | What it does |
 |---|---|
+| 🔍 **Command Bar** | Alt+Space floating launcher (PowerToys Run for Linux): search apps, calculate math, run shell commands, paths & web |
 | 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, and tracking URL sanitization |
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
@@ -59,6 +60,18 @@ Each tool is a *module* you can turn on or off in the Knobu settings app.
 Found a problem on your desktop? Please open an issue and mention your flavour and version.
 
 ## Modules
+
+### Command Bar (PowerToys Run for Linux)
+
+Press **Alt+Space** to open an instant, floating search and quick-command bar:
+
+- **Installed Applications**: Fast fuzzy search across all system and user desktop entries (`.desktop`), Flatpaks, and Snaps.
+- **Safe Calculator**: Evaluates math expressions instantly (e.g. `(15 * 4) / 2`, `sqrt(144)`, `20% of 150`, `pi`). Press Enter to copy the answer to your clipboard.
+- **Terminal & Shell Runner**: Run commands directly in your terminal by prefixing with `>` (e.g., `> htop`, `> ping 8.8.8.8`).
+- **Files & Path Navigation**: Type `~/` or `/` to search and navigate file paths, pressing Enter opens them in your default file manager.
+- **Web & URLs**: Open URLs directly or prefix with `? <query>` to search the web in your default browser.
+- **System Actions**: Quick commands to lock screen, sleep/suspend, reboot, shutdown, or open any Knobu tool.
+- **Zero-Conflict Alt+Space**: Features hardware-level exclusive `evdev` grabbing and automatic desktop environment shortcut overriding (safely frees `Alt+Space` in GNOME window menu and KDE KRunner).
 
 ### Clipboard History
 

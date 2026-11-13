@@ -30,6 +30,8 @@ Description: PowerToys-style utilities for Ubuntu
  Knobu adds small power tools to the desktop, each one a module that can be
  switched on or off in the Knobu settings app:
  .
+  * Command Bar: floating launcher (Alt+Space), app search, calculator, shell
+    command runner, and zero-conflict OS shortcut override.
   * Clipboard History: floating searchable clipboard palette (Super+V), image
     clip thumbnails, URL tracking parameter sanitization, and SQLite storage.
   * Touchpad Gestures: slide three fingers to change the volume, tap to mute
