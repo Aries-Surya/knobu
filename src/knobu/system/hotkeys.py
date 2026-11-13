@@ -1,8 +1,7 @@
 """Global keyboard shortcuts that work on Wayland and X11 on every desktop.
 
-Reads all keyboards directly (without grabbing them), so the desktop still sees the
-keys too. When Keyboard Manager is remapping, the physical keyboards are grabbed and
-this listener sees the remapped keys through Knobu's virtual keyboard instead.
+Reads all keyboards directly (without grabbing them), querying the live hardware
+state (dev.active_keys()) so modifiers never get stuck or desynced.
 """
 
 import logging
@@ -40,8 +39,22 @@ class HotkeyService:
         with self._lock:
             self._bindings.pop(binding_id, None)
 
-    def _fire(self, code: int, pressed: set[int]) -> None:
-        mods = held_mods(pressed)
+    def _get_live_modifiers(self, devices: dict[int, evdev.InputDevice], current_dev: evdev.InputDevice) -> frozenset[str]:
+        """Query live hardware key state directly to prevent stale modifier leakage."""
+        active_codes: set[int] = set()
+        try:
+            active_codes.update(current_dev.active_keys())
+        except (OSError, ValueError):
+            pass
+        for dev in list(devices.values()):
+            if dev.fd != current_dev.fd:
+                try:
+                    active_codes.update(dev.active_keys())
+                except (OSError, ValueError):
+                    pass
+        return held_mods(active_codes)
+
+    def _fire(self, code: int, mods: frozenset[str]) -> None:
         with self._lock:
             matches = [cb for chord, cb in self._bindings.values()
                        if chord.key == code and chord.mods == mods]
@@ -50,7 +63,6 @@ class HotkeyService:
 
     def _run(self) -> None:
         devices: dict[int, evdev.InputDevice] = {}  # fd -> device
-        pressed: set[int] = set()
         last_scan = 0.0
         while True:
             if time.monotonic() - last_scan > RESCAN_SECONDS:
@@ -63,22 +75,20 @@ class HotkeyService:
                 continue
             ready, _, _ = select.select(list(devices), [], [], 1.0)
             for fd in ready:
-                dev = devices[fd]
+                dev = devices.get(fd)
+                if not dev:
+                    continue
                 try:
                     events = list(dev.read())
                 except OSError:  # unplugged
-                    devices.pop(fd).close()
-                    pressed.clear()
+                    devices.pop(fd, None)
                     continue
                 for ev in events:
                     if ev.type != e.EV_KEY:
                         continue
-                    if ev.value == 1:
-                        if ev.code not in MOD_OF_CODE:
-                            self._fire(ev.code, pressed)
-                        pressed.add(ev.code)
-                    elif ev.value == 0:
-                        pressed.discard(ev.code)
+                    if ev.value == 1 and ev.code not in MOD_OF_CODE:
+                        mods = self._get_live_modifiers(devices, dev)
+                        self._fire(ev.code, mods)
 
 
 _service: HotkeyService | None = None
