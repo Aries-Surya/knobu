@@ -44,11 +44,14 @@ jobs:
             gir1.2-adw-1
 
       - name: Build Debian package
-        run: dpkg-buildpackage -us -uc -b
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist
+          cp ../knobu_*_all.deb dist/
 
       - name: Verify package installation
         run: |
-          sudo apt-get install -y ../knobu_*_all.deb
+          sudo apt-get install -y ./dist/knobu_*_all.deb
           knobu --version
           knobu --help
 
@@ -56,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: knobu-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}-deb
-          path: ../knobu_*_all.deb
+          path: dist/*.deb
           retention-days: 14
           if-no-files-found: error
 
@@ -117,13 +120,16 @@ jobs:
           fi
 
       - name: Build production Debian package
-        run: dpkg-buildpackage -us -uc -b
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist
+          cp ../knobu_*_all.deb dist/
 
       - name: Archive production release bundle
         uses: actions/upload-artifact@v4
         with:
           name: knobu-${{ needs.release-please.outputs.tag_name }}-deb
-          path: ../knobu_*_all.deb
+          path: dist/*.deb
           retention-days: 90
           if-no-files-found: error
 
@@ -132,4 +138,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
         run: |
-          gh release upload "$TAG_NAME" ../knobu_*_all.deb --clobber
+          gh release upload "$TAG_NAME" dist/*.deb --clobber
