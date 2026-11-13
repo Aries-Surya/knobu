@@ -9,9 +9,9 @@ Build-Depends: debhelper-compat (= 13),
                python3-setuptools,
                python3-evdev,
 Standards-Version: 4.7.0
-Homepage: https://github.com/Saad-1719/knobu
-Vcs-Browser: https://github.com/Saad-1719/knobu
-Vcs-Git: https://github.com/Saad-1719/knobu.git
+Homepage: https://github.com/Aries-Surya/knobu
+Vcs-Browser: https://github.com/Aries-Surya/knobu
+Vcs-Git: https://github.com/Aries-Surya/knobu.git
 Rules-Requires-Root: no
 
 Package: knobu

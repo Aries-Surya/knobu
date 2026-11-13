@@ -30,7 +30,7 @@ def awake(arg: str) -> None:
         minutes = parse_duration(arg)
         until = time.time() + minutes * 60
         s.update(enabled=True, mode="timed", minutes=minutes, until=until)
-        msg = time.strftime("Keeping awake until %H:%M.", time.localtime(until))
+        msg = time.strftime("Keeping awake until %-I:%M %p.", time.localtime(until))
     config.save(data)
     if not service.is_active():
         msg += " (The Knobu service isn't running; start it with `knobu enable`.)"
@@ -51,6 +51,8 @@ def main() -> None:
     p.add_argument("state", help="on | off | DURATION")
     sub.add_parser("pick-color", help="pick a colour from the screen")
     sub.add_parser("extract-text", help="select a screen area and copy its text")
+    sub.add_parser("clipboard", help="open the clipboard history popup")
+    sub.add_parser("paste-plain", help="paste current clipboard content as plain text")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -80,6 +82,17 @@ def main() -> None:
     elif args.command == "extract-text":
         from knobu.ui.textextractor import main as extractor_main
         sys.exit(extractor_main())
+    elif args.command == "clipboard":
+        from knobu.ui.clipboard import main as clipboard_main
+        sys.exit(clipboard_main())
+    elif args.command == "paste-plain":
+        import re
+        from knobu.modules.clipboard import get_clipboard, set_clipboard, simulate_paste
+        raw = get_clipboard()
+        if raw:
+            plain = re.sub(r"<[^>]+>", "", raw)
+            set_clipboard(plain)
+            simulate_paste()
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

@@ -140,8 +140,8 @@ class KnobuApp(Adw.Application):
             application_icon=APP_ID,
             version=__version__,
             developer_name="Knobu contributors",
-            website="https://github.com/Saad-1719/knobu",
-            issue_url="https://github.com/Saad-1719/knobu/issues",
+            website="https://github.com/Aries-Surya/knobu",
+            issue_url="https://github.com/Aries-Surya/knobu/issues",
             comments="PowerToys-style utilities for Ubuntu and its flavours.",
             license_type=Gtk.License.GPL_3_0,
         ).present(self.props.active_window)

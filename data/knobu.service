@@ -2,7 +2,7 @@
 # default: each user turns it on in the Knobu app or with `knobu enable`.
 [Unit]
 Description=Knobu background service
-Documentation=https://github.com/Saad-1719/knobu
+Documentation=https://github.com/Aries-Surya/knobu
 After=graphical-session.target
 PartOf=graphical-session.target
 

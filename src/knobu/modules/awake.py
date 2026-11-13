@@ -37,7 +37,7 @@ class AwakeModule(Module):
              "--mode=block", "sleep", "infinity"])
         screen_cookie = self._inhibit_screen() if s["keep_screen_on"] else None
         self.log.info("keeping awake%s%s", " (screen on)" if screen_cookie is not None else "",
-                      time.strftime(" until %H:%M", time.localtime(s["until"])) if timed else "")
+                      time.strftime(" until %-I:%M %p", time.localtime(s["until"])) if timed else "")
         try:
             while not stop.is_set():
                 if timed and time.time() >= s["until"]:

@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: knobu
 Upstream-Contact: saad-1719 <chsaad1407@gmail.com>
-Source: https://github.com/Saad-1719/knobu
+Source: https://github.com/Aries-Surya/knobu
 
 Files: *
 Copyright: 2026 saad-1719 <chsaad1407@gmail.com>

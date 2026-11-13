@@ -12,6 +12,7 @@ from gi.repository import Adw, GLib, Gtk
 
 from knobu import modules, service
 from knobu.modules.awake import AwakeModule
+from knobu.modules.clipboard import ClipboardModule
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
@@ -52,8 +53,8 @@ def awake_status(store: SettingsStore) -> str:
     if store.get(mid, "mode") != "timed":
         return "Awake until you turn it off"
     if until > time.time():
-        return time.strftime("Awake until %H:%M", time.localtime(until))
-    return time.strftime("Timer ended at %H:%M", time.localtime(until))
+        return time.strftime("Awake until %-I:%M %p", time.localtime(until))
+    return time.strftime("Timer ended at %-I:%M %p", time.localtime(until))
 
 
 def restart_awake_timer(store: SettingsStore) -> None:
@@ -83,7 +84,7 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return text(f"{n} remap{'s' if n != 1 else ''}" if n else "No remaps yet")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
-    if module_id in (ColorPickerModule.id, TextExtractorModule.id):
+    if module_id in (ClipboardModule.id, ColorPickerModule.id, TextExtractorModule.id):
         return keycaps(store.get(module_id, "hotkey"))
     return text("")
 
@@ -415,12 +416,77 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def clipboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = ClipboardModule.id
+    page = ModulePage(store, ClipboardModule)
+    from knobu.modules.clipboard import ClipboardStorage
+    storage = ClipboardStorage()
+
+    # 1. Overview & Statistics Group
+    stats_group = Adw.PreferencesGroup(title="Status & Storage")
+    stats = storage.get_stats()
+    status_row = Adw.ActionRow(use_markup=False, title="Clipboard database")
+    status_row.set_subtitle(f"{stats['total']} clips saved ({stats['pinned']} pinned, {stats['images']} images)")
+
+    clear_btn = Gtk.Button(label="Clear History", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    def on_clear():
+        storage.clear_all()
+        s = storage.get_stats()
+        status_row.set_subtitle(f"{s['total']} clips saved ({s['pinned']} pinned, {s['images']} images)")
+    clear_btn.connect("clicked", lambda _b: on_clear())
+    status_row.add_suffix(clear_btn)
+    stats_group.add(status_row)
+    page.add(stats_group)
+
+    # 2. Capacity & History Limit Group
+    capacity_group = Adw.PreferencesGroup(title="History Capacity")
+    capacity_group.add(spin_row(store, mid, "max_items", "History limit",
+                                "Maximum number of clipboard clips maintained before older ones are pruned",
+                                10, 500, 10))
+    page.add(capacity_group)
+
+    # 3. Content Types Group
+    content_group = Adw.PreferencesGroup(title="Allowed Content Types")
+    content_group.add(switch_row(store, mid, "store_text", "Store text clips",
+                                 "Save copied text, code snippets, and URLs"))
+    content_group.add(switch_row(store, mid, "store_images", "Store image clips",
+                                 "Save copied screenshots, graphics, and images as visual clips"))
+    page.add(content_group)
+
+    # 4. Sanitization & Privacy Group
+    sanit_group = Adw.PreferencesGroup(title="Sanitization & Privacy")
+    sanit_group.add(switch_row(store, mid, "clean_urls", "Clean tracking URLs",
+                               "Strip tracking parameters (utm_source, fbclid, gclid, etc.) when copying links"))
+    sanit_group.add(switch_row(store, mid, "strip_whitespace", "Strip trailing whitespace",
+                               "Trim excessive trailing whitespace and blank lines from copied text"))
+    sanit_group.add(switch_row(store, mid, "ignore_passwords", "Ignore password manager copies",
+                               "Skip storing sensitive passwords and credentials marked by password managers"))
+    page.add(sanit_group)
+
+    # 5. Shortcuts Group
+    shortcuts_group = Adw.PreferencesGroup(title="Shortcuts")
+    shortcuts_group.add(shortcut_row(store, mid, "hotkey", "Clipboard History",
+                                     "Open the searchable history palette (default Super+V)"))
+    shortcuts_group.add(shortcut_row(store, mid, "plain_hotkey", "Paste as Plain Text",
+                                     "Optional shortcut to strip rich formatting and paste immediately"))
+    page.add(shortcuts_group)
+
+    # 6. Test Group
+    try_it = Adw.PreferencesGroup(title="Actions")
+    try_it.add(button_row("Try it now", "Open Clipboard History", lambda: launch.knobu("clipboard"),
+                          "Opens the history popup palette directly"))
+    page.add(try_it)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
+    (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),
     (TextExtractorModule.id, TextExtractorModule.name, TextExtractorModule.icon,

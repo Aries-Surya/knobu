@@ -1,0 +1,133 @@
+name: CI/CD & Automated Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # JOB 1: Baseline Quality Gate & Debian Package Verification
+  # ----------------------------------------------------------------------------
+  ci:
+    name: Lint, Test & Build Deb
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            debhelper-compat \
+            dh-sequence-python3 \
+            pybuild-plugin-pyproject \
+            python3-all \
+            python3-setuptools \
+            python3-evdev \
+            python3-gi \
+            gir1.2-gtk-4.0 \
+            gir1.2-adw-1
+
+      - name: Build Debian package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Verify package installation
+        run: |
+          sudo apt-get install -y ../knobu_*_all.deb
+          knobu --version
+          knobu --help
+
+      - name: Archive Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: knobu-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}-deb
+          path: ../knobu_*_all.deb
+          retention-days: 14
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------------------
+  # JOB 2: Automated Semantic Versioning & Release Pull Request
+  # ----------------------------------------------------------------------------
+  release-please:
+    name: Evaluate Semantic Release
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run Google Release Please
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          target-branch: ${{ github.ref_name }}
+
+  # ----------------------------------------------------------------------------
+  # JOB 3: Build & Attach Production Debian Release to GitHub Release
+  # ----------------------------------------------------------------------------
+  build-release:
+    name: Build & Attach Production Deb
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout release tag (${{ needs.release-please.outputs.tag_name }})
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            debhelper-compat \
+            dh-sequence-python3 \
+            pybuild-plugin-pyproject \
+            python3-all \
+            python3-setuptools \
+            python3-evdev \
+            python3-gi \
+            gir1.2-gtk-4.0 \
+            gir1.2-adw-1
+
+      - name: Sync Debian package version
+        run: |
+          TAG_NAME="${{ needs.release-please.outputs.tag_name }}"
+          VERSION="${TAG_NAME#v}"
+          if ! grep -q "^knobu ($VERSION)" debian/changelog; then
+            sed -i "1i knobu ($VERSION) noble; urgency=medium\n\n  * Release $TAG_NAME\n\n -- knobu-bot <knobu-bot@users.noreply.github.com>  $(date -R)\n" debian/changelog
+          fi
+
+      - name: Build production Debian package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Archive production release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: knobu-${{ needs.release-please.outputs.tag_name }}-deb
+          path: ../knobu_*_all.deb
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Attach deb to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          gh release upload "$TAG_NAME" ../knobu_*_all.deb --clobber
