@@ -528,6 +528,12 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                               "Open URLs directly or search the web with '? search query'"))
     prov_group.add(switch_row(store, mid, "enable_system", "System Actions",
                               "Quick commands for lock screen, sleep, restart, and Knobu tools"))
+    prov_group.add(switch_row(store, mid, "enable_converter", "Unit & Currency Converter",
+                              "Convert units and currencies (e.g. 100 USD in EUR, 50 miles in km, 100 C in F)"))
+    prov_group.add(switch_row(store, mid, "enable_emoji", "Emoji Picker",
+                              "Search and copy emojis prefixed with ':' (e.g. :fire, :rocket, :check)"))
+    prov_group.add(switch_row(store, mid, "enable_windows", "Window & Tab Switcher",
+                              "Switch to open windows and browser tabs, prefixed with '<' (e.g. < code, < cliq)"))
     page.add(prov_group)
 
     # 3. Preferences

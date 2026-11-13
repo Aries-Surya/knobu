@@ -63,15 +63,18 @@ Found a problem on your desktop? Please open an issue and mention your flavour a
 
 ### Command Bar (PowerToys Run for Linux)
 
-Press **Alt+Space** to open an instant, floating search and quick-command bar:
+Press **Alt+Space** to open an instant, floating search and quick-command bar (pressing **Alt+Space** again toggles it closed):
 
 - **Installed Applications**: Fast fuzzy search across all system and user desktop entries (`.desktop`), Flatpaks, and Snaps.
 - **Safe Calculator**: Evaluates math expressions instantly (e.g. `(15 * 4) / 2`, `sqrt(144)`, `20% of 150`, `pi`). Press Enter to copy the answer to your clipboard.
+- **Unit & Currency Converter**: Convert lengths, masses, storage, times, speeds, volumes, temperatures, and 35+ global currencies (e.g., `100 USD in EUR`, `50 miles in km`, `100 C in F`, `16 GB in MB`, `$100 in INR`).
+- **Emoji Search & Picker**: Prefix with `:` to search and copy emojis directly (e.g., `:fire`, `:rocket`, `:check`, `:tada`, `:coffee`).
+- **Open Windows & Tab Switcher**: Switch to open application windows and browser tabs, prefixed with `<` (e.g., `< code`, `< browser`, `< cliq`) or surfaced directly in search.
 - **Terminal & Shell Runner**: Run commands directly in your terminal by prefixing with `>` (e.g., `> htop`, `> ping 8.8.8.8`).
 - **Files & Path Navigation**: Type `~/` or `/` to search and navigate file paths, pressing Enter opens them in your default file manager.
 - **Web & URLs**: Open URLs directly or prefix with `? <query>` to search the web in your default browser.
 - **System Actions**: Quick commands to lock screen, sleep/suspend, reboot, shutdown, or open any Knobu tool.
-- **Zero-Conflict Alt+Space**: Features hardware-level exclusive `evdev` grabbing and automatic desktop environment shortcut overriding (safely frees `Alt+Space` in GNOME window menu and KDE KRunner).
+- **Zero-Conflict Alt+Space**: Features hardware-level exclusive `evdev` grabbing, toggle-to-close dismiss, and automatic desktop environment shortcut overriding (safely frees `Alt+Space` in GNOME window menu and KDE KRunner).
 
 ### Clipboard History
 

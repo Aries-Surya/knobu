@@ -6,7 +6,7 @@ Search apps, calculate, run shell commands, navigate paths, and perform system a
 from __future__ import annotations
 
 import logging
-from gi.repository import Adw, Gdk, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from knobu import APP_ID, config
 from knobu.modules.commandbar.providers import SearchEngine, SearchResult
@@ -90,6 +90,12 @@ scrollbar slider {
   border-radius: 4px;
   background-color: #3e3e48;
 }
+
+.knobu-emoji-icon {
+  font-size: 24px;
+  min-width: 32px;
+  min-height: 32px;
+}
 """
 
 
@@ -153,7 +159,7 @@ class CommandBarWindow(Gtk.Window):
         entry_box.append(app_icon(28))
 
         self.entry = Gtk.SearchEntry(
-            placeholder_text="Type to search apps, calculate, or run commands (e.g. > top, 25*4, ~/...)",
+            placeholder_text="Search apps, windows (<), calculate, convert, emoji (:), commands (>)...",
             hexpand=True,
             css_classes=["knobu-bar-entry"],
         )
@@ -223,9 +229,15 @@ class CommandBarWindow(Gtk.Window):
                 css_classes=["knobu-bar-row"] + (["selected"] if idx == self.selected_index else []),
             )
 
-            # Icon
-            icon = Gtk.Image.new_from_icon_name(item.icon_name)
-            icon.set_pixel_size(32)
+            # Icon (Emoji label, file path image, or theme icon name)
+            if item.category == "Emoji":
+                icon = Gtk.Label(label=item.icon_name, css_classes=["knobu-emoji-icon"])
+            elif item.icon_name.startswith("/"):
+                icon = Gtk.Image.new_from_file(item.icon_name)
+                icon.set_pixel_size(32)
+            else:
+                icon = Gtk.Image.new_from_icon_name(item.icon_name)
+                icon.set_pixel_size(32)
             icon.set_valign(Gtk.Align.CENTER)
             row.append(icon)
 
@@ -276,12 +288,25 @@ class CommandBarWindow(Gtk.Window):
         self._activate_selected()
 
 
-class CommandBarApp(ToolApp):
+class CommandBarApp(Adw.Application):
     suffix = "commandbar"
 
+    def __init__(self):
+        super().__init__(
+            application_id=f"{APP_ID}.{self.suffix}",
+            flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
+        )
+        self.win: CommandBarWindow | None = None
+
     def do_activate(self):
-        win = CommandBarWindow(application=self)
-        win.present()
+        if self.win and self.win.is_visible():
+            self.win.close()
+            self.win = None
+            return
+
+        self.win = CommandBarWindow(application=self)
+        self.win.connect("destroy", lambda _w: setattr(self, "win", None))
+        self.win.present()
 
 
 def main() -> int:

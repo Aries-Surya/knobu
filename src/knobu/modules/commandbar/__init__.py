@@ -19,12 +19,15 @@ from knobu.modules.commandbar.os_shortcuts import (
 from knobu.modules.commandbar.providers import (
     AppProvider,
     CalculatorProvider,
+    ConverterProvider,
+    EmojiProvider,
     PathProvider,
     SearchEngine,
     SearchResult,
     ShellProvider,
     SystemProvider,
     WebProvider,
+    WindowProvider,
 )
 from knobu.system import hotkeys, keys, launch
 
@@ -36,10 +39,13 @@ __all__ = [
     "SearchResult",
     "AppProvider",
     "CalculatorProvider",
-    "ShellProvider",
+    "ConverterProvider",
+    "EmojiProvider",
     "PathProvider",
-    "WebProvider",
+    "ShellProvider",
     "SystemProvider",
+    "WebProvider",
+    "WindowProvider",
     "check_conflicts",
     "override_os_shortcuts",
     "restore_os_shortcuts",
@@ -63,6 +69,9 @@ class CommandBarModule(Module):
         "enable_web": True,
         "enable_paths": True,
         "enable_system": True,
+        "enable_converter": True,
+        "enable_emoji": True,
+        "enable_windows": True,
     }
 
     def run(self, stop: threading.Event) -> None:

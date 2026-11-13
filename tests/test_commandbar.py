@@ -6,16 +6,19 @@ from knobu.modules.commandbar import (
     AppProvider,
     CalculatorProvider,
     CommandBarModule,
+    ConverterProvider,
+    EmojiProvider,
     PathProvider,
     SearchEngine,
     ShellProvider,
     SystemProvider,
     WebProvider,
+    WindowProvider,
     check_conflicts,
     override_os_shortcuts,
     restore_os_shortcuts,
 )
-from knobu.modules.commandbar.providers import AppEntry, SafeCalculator
+from knobu.modules.commandbar.providers import AppEntry, SafeCalculator, UnitConverter
 
 
 class TestCommandBar(unittest.TestCase):
@@ -27,6 +30,9 @@ class TestCommandBar(unittest.TestCase):
         self.assertTrue(CommandBarModule.defaults["exclusive"])
         self.assertTrue(CommandBarModule.defaults["override_os_shortcut"])
         self.assertEqual(CommandBarModule.defaults["max_results"], 8)
+        self.assertTrue(CommandBarModule.defaults["enable_converter"])
+        self.assertTrue(CommandBarModule.defaults["enable_emoji"])
+        self.assertTrue(CommandBarModule.defaults["enable_windows"])
 
     def test_calculator_basic_arithmetic(self):
         self.assertEqual(SafeCalculator.evaluate("2 + 2"), 4)
@@ -113,9 +119,91 @@ class TestCommandBar(unittest.TestCase):
             "enable_web": True,
             "enable_paths": True,
             "enable_system": True,
+            "enable_converter": True,
+            "enable_emoji": True,
+            "enable_windows": True,
         })
         res = engine.search("5 * 5", limit=5)
         self.assertTrue(any(r.category == "Calculator" for r in res))
+
+        emoji_res = engine.search(":fire", limit=5)
+        self.assertTrue(any(r.category == "Emoji" for r in emoji_res))
+
+        conv_res = engine.search("100 USD in EUR", limit=5)
+        self.assertTrue(any(r.category == "Converter" for r in conv_res))
+
+    def test_unit_converter_units(self):
+        res = UnitConverter.convert("50 miles in km")
+        self.assertIsNotNone(res)
+        self.assertAlmostEqual(res[0], 80.4672, places=3)
+        self.assertIn("km", res[1])
+
+        res_gb = UnitConverter.convert("16 GB in MB")
+        self.assertIsNotNone(res_gb)
+        self.assertEqual(res_gb[0], 16384.0)
+
+        res_mass = UnitConverter.convert("10 kg to lbs")
+        self.assertIsNotNone(res_mass)
+        self.assertAlmostEqual(res_mass[0], 22.0462, places=2)
+
+    def test_unit_converter_temperature(self):
+        res_f = UnitConverter.convert("100 C in F")
+        self.assertIsNotNone(res_f)
+        self.assertEqual(res_f[0], 212.0)
+
+        res_c = UnitConverter.convert("32 F to C")
+        self.assertIsNotNone(res_c)
+        self.assertEqual(res_c[0], 0.0)
+
+    def test_unit_converter_currency(self):
+        res_eur = UnitConverter.convert("100 USD in EUR")
+        self.assertIsNotNone(res_eur)
+        self.assertEqual(res_eur[0], 92.0)
+
+        res_sym = UnitConverter.convert("$100 in EUR")
+        self.assertIsNotNone(res_sym)
+        self.assertEqual(res_sym[0], 92.0)
+
+    def test_unit_converter_invalid(self):
+        self.assertIsNone(UnitConverter.convert("hello in world"))
+        self.assertIsNone(UnitConverter.convert("100 apples in oranges"))
+        self.assertIsNone(UnitConverter.convert(""))
+
+    def test_emoji_provider(self):
+        prov = EmojiProvider()
+        res = prov.search(":fire")
+        self.assertTrue(len(res) > 0)
+        self.assertEqual(res[0].category, "Emoji")
+        self.assertIn("🔥", res[0].title)
+
+        res_rocket = prov.search(":rocket")
+        self.assertTrue(len(res_rocket) > 0)
+        self.assertIn("🚀", res_rocket[0].title)
+
+        res_hint = prov.search(":")
+        self.assertTrue(len(res_hint) > 0)
+
+        empty = prov.search("normal text")
+        self.assertEqual(len(empty), 0)
+
+    def test_window_provider(self):
+        prov = WindowProvider()
+        res = prov.search("< ")
+        self.assertIsInstance(res, list)
+
+    def test_commandbar_toggle_app(self):
+        from knobu.ui.commandbar import CommandBarApp
+        app = CommandBarApp()
+        self.assertIsNone(app.win)
+
+        mock_win = MagicMock()
+        mock_win.is_visible.return_value = True
+        app.win = mock_win
+
+        # Activating while visible should close the window (Alt+Space toggle off)
+        app.do_activate()
+        mock_win.close.assert_called_once()
+        self.assertIsNone(app.win)
 
     @patch("subprocess.run")
     def test_os_shortcut_conflict_check(self, mock_run):
