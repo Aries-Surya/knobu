@@ -29,8 +29,16 @@ def find_touchpad(path: str = "") -> evdev.InputDevice | None:
     return None
 
 
-def units_per_mm(dev: evdev.InputDevice) -> float:
-    return dev.absinfo(e.ABS_MT_POSITION_Y).resolution or 12
+def units_per_mm(dev: evdev.InputDevice) -> tuple[float, float]:
+    try:
+        rx = dev.absinfo(e.ABS_MT_POSITION_X).resolution or 12
+    except Exception:
+        rx = 12
+    try:
+        ry = dev.absinfo(e.ABS_MT_POSITION_Y).resolution or 12
+    except Exception:
+        ry = 12
+    return float(rx), float(ry)
 
 
 class FrameTracker:
@@ -39,6 +47,7 @@ class FrameTracker:
     def __init__(self, recognizer: GestureRecognizer):
         self.recognizer = recognizer
         self.slot = 0
+        self.xs: dict[int, int] = {}
         self.ys: dict[int, int] = {}
         self.fingers = 0
 
@@ -47,7 +56,10 @@ class FrameTracker:
             if ev.code == e.ABS_MT_SLOT:
                 self.slot = ev.value
             elif ev.code == e.ABS_MT_TRACKING_ID and ev.value == -1:
+                self.xs.pop(self.slot, None)
                 self.ys.pop(self.slot, None)
+            elif ev.code == e.ABS_MT_POSITION_X:
+                self.xs[self.slot] = ev.value
             elif ev.code == e.ABS_MT_POSITION_Y:
                 self.ys[self.slot] = ev.value
         elif ev.type == e.EV_KEY and ev.code in FINGER_TOOLS:
@@ -56,4 +68,4 @@ class FrameTracker:
             elif self.fingers == FINGER_TOOLS[ev.code]:
                 self.fingers = 0
         elif ev.type == e.EV_SYN and ev.code == e.SYN_REPORT:
-            self.recognizer.frame(self.fingers, self.ys, time.monotonic())
+            self.recognizer.frame(self.fingers, self.xs, self.ys, time.monotonic())

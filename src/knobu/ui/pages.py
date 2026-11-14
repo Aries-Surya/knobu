@@ -22,7 +22,7 @@ from knobu.modules.commandbar import (
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
-from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
+from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
@@ -207,47 +207,54 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     bp_group = Adw.PreferencesGroup(
         title="Gaming and Passthrough",
-        description="Temporarily pass raw touchpad events directly without volume or tap action interception.",
+        description="Temporarily pass raw touchpad events directly without gesture interception.",
     )
     bp_group.add(switch_row(store, mid, "bypass", "Bypass Touchpad Gestures",
-                            "Allow standard touchpad gestures and pointer movement without Knobu volume/media actions"))
+                            "Allow standard touchpad gestures and pointer movement without Knobu actions"))
+    bp_group.add(switch_row(store, mid, "grab_gestures", "Prevent OS Double-Trigger",
+                            "Claim touchpad exclusively during 3 and 4-finger gestures so GNOME does not simultaneously trigger desktop gestures"))
     page.add(bp_group)
 
-    from knobu.modules.commandbar.os_shortcuts import is_gnome
-    if is_gnome():
-        gnome_group = Adw.PreferencesGroup(title="GNOME Desktop Recommendation")
-        gnome_row = Adw.ActionRow(
-            title="Use 4-finger gestures on GNOME",
-            subtitle="GNOME natively captures 3-finger swipes for overview and workspace switching. "
-                     "Select '4 fingers' below to control volume smoothly without desktop conflicts.",
-        )
-        gnome_group.add(gnome_row)
-        page.add(gnome_group)
+    gesture_opts = list(GESTURE_ACTIONS.items())
+    tap_opts = list(TAP_ACTIONS.items())
 
-    volume = Adw.PreferencesGroup(title="Volume", description="Slide up or down to change volume.")
-    volume.add(switch_row(store, mid, "volume_drag", "Slide to change volume"))
-    volume.add(choice_row(store, mid, "fingers", "Slide with", "",
-                          [(3, "3 fingers"), (4, "4 fingers")]))
+    # 1. Three-Finger Gestures (Windows Precision style)
+    three_group = Adw.PreferencesGroup(
+        title="Three-Finger Gestures",
+        description="Configure actions for 3-finger swipes and taps.",
+    )
+    three_group.add(choice_row(store, mid, "swipe3_up", "Swipe Up", "Action for 3-finger swipe up", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_down", "Swipe Down", "Action for 3-finger swipe down", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_left", "Swipe Left", "Action for 3-finger swipe left", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_right", "Swipe Right", "Action for 3-finger swipe right", gesture_opts))
+    three_group.add(choice_row(store, mid, "tap3_action", "Tap Action", "Action for 3-finger tap", tap_opts))
+    page.add(three_group)
+
+    # 2. Four-Finger Gestures (Windows Precision style)
+    four_group = Adw.PreferencesGroup(
+        title="Four-Finger Gestures",
+        description="Configure actions for 4-finger swipes and taps.",
+    )
+    four_group.add(choice_row(store, mid, "swipe4_up", "Swipe Up", "Action for 4-finger swipe up", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_down", "Swipe Down", "Action for 4-finger swipe down", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_left", "Swipe Left", "Action for 4-finger swipe left", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_right", "Swipe Right", "Action for 4-finger swipe right", gesture_opts))
+    four_group.add(choice_row(store, mid, "tap4_action", "Tap Action", "Action for 4-finger tap", tap_opts))
+    page.add(four_group)
+
+    # 3. Audio & Sensitivity
+    volume = Adw.PreferencesGroup(title="Volume Slide Sensitivity", description="Settings for continuous volume sliding.")
     volume.add(spin_row(store, mid, "percent_per_cm", "Speed",
-                        "Volume change (%) per centimetre of movement", 5, 50))
-    volume.add(switch_row(store, mid, "invert", "Reverse direction", "Slide down to make it louder"))
+                        "Volume change (%) per centimetre of vertical movement", 5, 50))
+    volume.add(switch_row(store, mid, "invert", "Reverse direction", "Slide down to increase volume"))
     volume.add(choice_row(
         store, mid, "max_volume", "Maximum volume", "Above 100% amplifies and may distort",
         [("system", f"Same as system ({system_max_volume()}%)"),
          (100, "100%"), (125, "125%"), (150, "150%")]))
+    volume.add(switch_row(store, mid, "osd", "Show volume pop-up",
+                          "Uses your desktop on-screen volume indicator (GNOME and KDE Plasma)"))
     page.add(volume)
 
-    taps = Adw.PreferencesGroup(title="Taps", description="A quick tap with several fingers.")
-    actions = list(TAP_ACTIONS.items())
-    taps.add(choice_row(store, mid, "tap3_action", "3-finger tap",
-                        "Linux also sends a middle-click on this tap", actions))
-    taps.add(choice_row(store, mid, "tap4_action", "4-finger tap", "", actions))
-    page.add(taps)
-
-    feedback = Adw.PreferencesGroup(title="Feedback")
-    feedback.add(switch_row(store, mid, "osd", "Show volume pop-up",
-                            "Uses your desktop's on-screen volume indicator (GNOME and KDE Plasma)"))
-    page.add(feedback)
     return page
 
 
