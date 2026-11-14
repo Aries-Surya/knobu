@@ -206,6 +206,7 @@ class TouchpadModule(Module):
     defaults = {
         "enabled": True,
         "bypass": False,
+        "fingers": 3,
         "grab_gestures": True,
         "percent_per_cm": 16,
         "invert": False,

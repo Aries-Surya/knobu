@@ -96,15 +96,20 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return Gtk.Label(label=label, xalign=0, css_classes=["dim-label", "summary"])
 
     if module_id == TouchpadModule.id:
-        fingers = store.get(module_id, "fingers")
-        return text(f"{fingers}-finger slide for volume · taps for mute and media")
+        return text("3 and 4-finger swipes · volume, media and multitasking")
     if module_id == KeyboardModule.id:
-        n = len(store.get(module_id, "remaps"))
-        return text(f"{n} remap{'s' if n != 1 else ''}" if n else "No remaps yet")
+        n = len(store.get(module_id, "remaps", []))
+        return text(f"{n} remap{'s' if n != 1 else ''}" if n else "Remaps, snippets and protection")
+    if module_id == MouseModule.id:
+        return text("Smooth scrolling and debounce filter")
+    if module_id == CommandBarModule.id:
+        hotkey = store.get(module_id, "hotkey", "alt+space")
+        return keycaps(hotkey) if hotkey else text("Alt+Space")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
     if module_id in (ClipboardModule.id, ColorPickerModule.id, TextExtractorModule.id):
-        return keycaps(store.get(module_id, "hotkey"))
+        hotkey = store.get(module_id, "hotkey", "")
+        return keycaps(hotkey) if hotkey else text("")
     return text("")
 
 

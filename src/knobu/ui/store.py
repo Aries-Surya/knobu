@@ -13,9 +13,12 @@ class SettingsStore:
         self._reload_source = 0
         self.listeners = []  # callables(module_id, key, value), e.g. sidebar status dots
 
-    def get(self, module_id: str, key: str):
+    def get(self, module_id: str, key: str, default=None):
         defaults = modules.get(module_id).defaults
-        return config.module_settings(self.data, module_id, defaults)[key]
+        settings = config.module_settings(self.data, module_id, defaults)
+        if default is not None:
+            return settings.get(key, default)
+        return settings[key] if key in settings else default
 
     def set(self, module_id: str, key: str, value) -> None:
         if self.get(module_id, key) == value:
