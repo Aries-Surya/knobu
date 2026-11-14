@@ -5,6 +5,7 @@ turns into a crosshair. The rest of the screen dims only while dragging, and the
 is captured as soon as the mouse is released. Esc or right-click cancels.
 """
 
+import cairo
 from gi.repository import Gdk, Gtk
 
 from knobu.ui.capture import desktop_layout

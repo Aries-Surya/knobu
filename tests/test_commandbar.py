@@ -132,6 +132,11 @@ class TestCommandBar(unittest.TestCase):
         conv_res = engine.search("100 USD in EUR", limit=5)
         self.assertTrue(any(r.category == "Converter" for r in conv_res))
 
+        # Test kwargs flexibility
+        kw_engine = SearchEngine(max_results=5, enable_calc=True)
+        self.assertEqual(kw_engine.settings.get("max_results"), 5)
+        self.assertTrue(kw_engine.settings.get("enable_calc"))
+
     def test_unit_converter_units(self):
         res = UnitConverter.convert("50 miles in km")
         self.assertIsNotNone(res)

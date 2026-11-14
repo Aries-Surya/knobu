@@ -206,7 +206,7 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page = ModulePage(store, TouchpadModule, notices=input_notice())
 
     bp_group = Adw.PreferencesGroup(
-        title="Gaming & Passthrough",
+        title="Gaming and Passthrough",
         description="Temporarily pass raw touchpad events directly without volume or tap action interception.",
     )
     bp_group.add(switch_row(store, mid, "bypass", "Bypass Touchpad Gestures",
@@ -262,7 +262,7 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page = ModulePage(store, KeyboardModule, notices=notices)
 
     bp_group = Adw.PreferencesGroup(
-        title="Gaming & Passthrough",
+        title="Gaming and Passthrough",
         description="Temporarily disable keyboard remaps, snippets, and quit protection without stopping other tools.",
     )
     bp_group.add(switch_row(store, mid, "bypass", "Bypass Keyboard Customizations",
@@ -385,10 +385,10 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     # 3. Quit & Close Protection
     quit_group = Adw.PreferencesGroup(
-        title="Quit & Close Protection",
+        title="Quit and Close Protection",
         description="Prevent accidental loss of work from Ctrl+Q or Ctrl+W.",
     )
-    quit_group.add(switch_row(store, mid, "quit_protection", "Enable Quit & Close Protection",
+    quit_group.add(switch_row(store, mid, "quit_protection", "Enable Quit and Close Protection",
                               "Require hold or double-press before closing applications or windows"))
     quit_group.add(choice_row(store, mid, "quit_protection_mode", "Confirmation Mode",
                               "How to verify you intended to quit or close",
@@ -422,7 +422,7 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page = ModulePage(store, MouseModule, notices=notices)
 
     bp_group = Adw.PreferencesGroup(
-        title="Gaming & Passthrough",
+        title="Gaming and Passthrough",
         description="Temporarily pass raw mouse wheel and button events directly without modification.",
     )
     bp_group.add(switch_row(store, mid, "bypass", "Bypass Mouse Customizations",
@@ -431,7 +431,7 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     # 1. Smooth & Independent Scrolling
     scroll_group = Adw.PreferencesGroup(
-        title="Smooth & Independent Scrolling",
+        title="Smooth and Independent Scrolling",
         description="Configure mouse wheel scrolling independently of touchpad desktop settings.",
     )
     scroll_group.add(switch_row(store, mid, "invert_wheel", "Invert Mouse Wheel Direction",
@@ -584,7 +584,7 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page.add(group)
 
     bypass_group = Adw.PreferencesGroup(
-        title="Bypass & OS Customization",
+        title="Bypass and OS Customization",
         description="Temporarily bypass hardware grabs, input interception, and restore native OS shortcuts.",
     )
     bypass_switch = Adw.SwitchRow(
@@ -725,11 +725,11 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                               "Open URLs directly or search the web with '? search query'"))
     prov_group.add(switch_row(store, mid, "enable_system", "System Actions",
                               "Quick commands for lock screen, sleep, restart, and Knobu tools"))
-    prov_group.add(switch_row(store, mid, "enable_converter", "Unit & Currency Converter",
+    prov_group.add(switch_row(store, mid, "enable_converter", "Unit and Currency Converter",
                               "Convert units and currencies (e.g. 100 USD in EUR, 50 miles in km, 100 C in F)"))
     prov_group.add(switch_row(store, mid, "enable_emoji", "Emoji Picker",
                               "Search and copy emojis prefixed with ':' (e.g. :fire, :rocket, :check)"))
-    prov_group.add(switch_row(store, mid, "enable_windows", "Window & Tab Switcher",
+    prov_group.add(switch_row(store, mid, "enable_windows", "Window and Tab Switcher",
                               "Switch to open windows and browser tabs, prefixed with '<' (e.g. < code, < cliq)"))
     page.add(prov_group)
 

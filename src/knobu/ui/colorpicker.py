@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 
+import cairo
 from gi.repository import Adw, GLib, Gtk
 
 from knobu.system import portal
