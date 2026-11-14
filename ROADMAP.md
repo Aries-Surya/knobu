@@ -50,17 +50,23 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 4: Command Bar (PowerToys Run for Linux) ⚡
+## Milestone 4: Command Bar (PowerToys Run for Linux) ✅
 
 *Inspired by Vorssaint Command Bar & PowerToys Run*
 
-- [ ] **Centered Search Omnibar (`Alt+Space`)**:
+- [X] **Centered Search Omnibar (`Alt+Space`)**:
   - Fast desktop application launcher scanning `.desktop` files with fuzzy matching.
-  - Integrated math expression calculator (e.g., `24 * 1024 / 2`).
-  - Unit and currency converter (e.g., `100 USD in EUR`, `50 miles in km`).
-  - Direct shell command executor (prefixed with `>` or `$`).
-  - Emoji search and picker (prefixed with `:`).
-  - Open windows switcher and tab finder.
+  - Safe mathematical expression calculator (AST-based arithmetic, powers, percentages, math functions, constants).
+  - Direct shell command executor (prefixed with `>`).
+  - Filesystem path navigator (typing `~/` or `/` navigates folders and opens files).
+  - Web & quick search (direct URLs and `? <query>` web searches in default browser).
+  - Quick system commands (Lock, Sleep, Restart, Shutdown, and Knobu module launchers).
+  - Zero-conflict `Alt+Space` handling: kernel-level exclusive `evdev` grabbing and automatic OS-level shortcut override for GNOME and KDE window manager shortcuts.
+  - Native GTK4/Adwaita Settings Dashboard for provider selection, max results, and manual OS shortcut management.
+- [X] Unit and currency converter (e.g., `100 USD in EUR`, `50 miles in km`, `100 C in F`, `16 GB in MB`).
+- [X] Emoji search and picker (prefixed with `:`, e.g., `:fire`, `:rocket`, `:check`).
+- [X] Open windows switcher and tab finder (prefixed with `<`, e.g., `< code`, `< browser`).
+- [X] Instant toggle-to-close behavior: pressing `Alt+Space` while open immediately dismisses the launcher.
 
 ---
 

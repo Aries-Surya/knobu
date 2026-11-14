@@ -7,12 +7,12 @@
 Touchpad volume gestures, key remapping, a colour picker, on-screen text copying and
 "keep awake", all in one native GTK4 app. Works on Wayland and X11.
 
-[![Latest release](https://img.shields.io/github/v/release/Saad-1719/knobu?color=E95420)](https://github.com/Saad-1719/knobu/releases/latest)
-[![License: GPL-3.0](https://img.shields.io/github/license/Saad-1719/knobu)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Aries-Surya/knobu?color=E95420)](https://github.com/Aries-Surya/knobu/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/github/license/Aries-Surya/knobu)](LICENSE)
 [![Kubuntu: supported](https://img.shields.io/badge/Kubuntu-supported-1d99f3)](#supported-desktops)
 [![Ubuntu: beta](https://img.shields.io/badge/Ubuntu-beta-E95420)](#supported-desktops)
 
-[Website](https://knobu.saaadi.dev) · [Download](https://github.com/Saad-1719/knobu/releases/latest) · [PowerToys → Knobu](https://knobu.saaadi.dev/powertoys-alternative-linux) · [Report a bug](https://github.com/Saad-1719/knobu/issues)
+[Download](https://github.com/Aries-Surya/knobu/releases/latest) · [Report a bug](https://github.com/Aries-Surya/knobu/issues)
 
 <img src="docs/demo.gif" alt="Knobu demo: three-finger volume slide, CapsLock to Ctrl remap, colour picker, text extractor and Awake" width="800">
 
@@ -23,18 +23,22 @@ Touchpad volume gestures, key remapping, a colour picker, on-screen text copying
 On Ubuntu or Kubuntu 24.04 or newer:
 
 ```bash
-wget https://github.com/Saad-1719/knobu/releases/download/v0.1.0/knobu_0.1.0_all.deb
-sudo apt install ./knobu_0.1.0_all.deb
+# Download and install the latest release package
+wget https://github.com/Aries-Surya/knobu/releases/latest/download/knobu_all.deb -O /tmp/knobu_latest.deb || \
+wget $(curl -s https://api.github.com/repos/Aries-Surya/knobu/releases/latest | grep "browser_download_url.*deb" | cut -d '"' -f 4) -O /tmp/knobu_latest.deb
+sudo apt install /tmp/knobu_latest.deb
 sudo usermod -aG input $USER   # then log out and back in
 ```
 
 Open **Knobu** from the app menu and turn on the background service. Details are in
-[Install](#install) and [Requirements](#requirements).
+[Install](#install), [Updating](#updating), and [Requirements](#requirements).
 
 ## What you get
 
 | Tool | What it does |
 |---|---|
+| 🔍 **Command Bar** | Alt+Space floating launcher (PowerToys Run for Linux): search apps, calculate math, run shell commands, paths & web |
+| 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, and tracking URL sanitization |
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
 | ☕ **Awake** | Keep the computer awake for a while, without touching power settings |
@@ -56,6 +60,32 @@ Each tool is a *module* you can turn on or off in the Knobu settings app.
 Found a problem on your desktop? Please open an issue and mention your flavour and version.
 
 ## Modules
+
+### Command Bar (PowerToys Run for Linux)
+
+Press **Alt+Space** to open an instant, floating search and quick-command bar (pressing **Alt+Space** again toggles it closed):
+
+- **Installed Applications**: Fast fuzzy search across all system and user desktop entries (`.desktop`), Flatpaks, and Snaps.
+- **Safe Calculator**: Evaluates math expressions instantly (e.g. `(15 * 4) / 2`, `sqrt(144)`, `20% of 150`, `pi`). Press Enter to copy the answer to your clipboard.
+- **Unit & Currency Converter**: Convert lengths, masses, storage, times, speeds, volumes, temperatures, and 35+ global currencies (e.g., `100 USD in EUR`, `50 miles in km`, `100 C in F`, `16 GB in MB`, `$100 in INR`).
+- **Emoji Search & Picker**: Prefix with `:` to search and copy emojis directly (e.g., `:fire`, `:rocket`, `:check`, `:tada`, `:coffee`).
+- **Open Windows & Tab Switcher**: Switch to open application windows and browser tabs, prefixed with `<` (e.g., `< code`, `< browser`, `< cliq`) or surfaced directly in search.
+- **Terminal & Shell Runner**: Run commands directly in your terminal by prefixing with `>` (e.g., `> htop`, `> ping 8.8.8.8`).
+- **Files & Path Navigation**: Type `~/` or `/` to search and navigate file paths, pressing Enter opens them in your default file manager.
+- **Web & URLs**: Open URLs directly or prefix with `? <query>` to search the web in your default browser.
+- **System Actions**: Quick commands to lock screen, sleep/suspend, reboot, shutdown, or open any Knobu tool.
+- **Zero-Conflict Alt+Space**: Features hardware-level exclusive `evdev` grabbing, toggle-to-close dismiss, and automatic desktop environment shortcut overriding (safely frees `Alt+Space` in GNOME window menu and KDE KRunner).
+
+### Clipboard History
+
+Press **Super+V** (`Windows+V`) to summon a clean, searchable floating clipboard palette:
+
+- **Rich Content Support**: Stores and previews text and copied graphics (screenshots, PNG, JPEG) with instant dimension tags and live thumbnail rendering.
+- **Privacy & Sanitization**: Automatically strips marketing and tracking parameters (`utm_*`, `fbclid`, `gclid`, etc.) and trims trailing whitespaces on copy.
+- **Password Manager Protection**: Automatically detects and ignores sensitive secrets copied from KeePassXC, 1Password, or password managers with KDE/GNOME privacy flags.
+- **Hardware-Level Exclusive Grab**: Swallows `Super+V` at the evdev hardware layer so underlying applications never receive stray keystrokes or premature paste events.
+- **Persistent Local SQLite**: Stored safely in `~/.local/share/knobu/clipboard.db` with unpinned clip capacity bounds (10–500 clips).
+- **Settings Dashboard**: Configure history limit, allowed types (text/images), privacy filters, keyboard shortcuts, view storage metrics, or clear history in one click.
 
 ### Touchpad Gestures
 
@@ -152,11 +182,11 @@ right-click Knobu's icon.
 
 ## Install
 
-Download the latest `.deb` from the releases page and install it with apt, which pulls in
+Download the latest `.deb` from the [Releases page](https://github.com/Aries-Surya/knobu/releases/latest) and install it with apt, which pulls in
 the dependencies:
 
 ```bash
-sudo apt install ./knobu_0.1.0_all.deb
+sudo apt install ./knobu_*_all.deb
 ```
 
 Then open **Knobu** from the app menu and turn on the background service on the General
@@ -165,6 +195,41 @@ page. Each user turns it on for themselves; nothing starts automatically after i
 The package also installs a udev rule that lets members of the `input` group create
 virtual keyboards, which Keyboard Manager needs. You still need to be in that group
 (see [Requirements](#requirements)).
+
+## Updating
+
+When a new version is published to GitHub Releases, you can update without losing any configuration or clipboard history:
+
+### Option A: One-line Terminal Upgrade (Recommended)
+```bash
+# Fetch and install the latest release .deb
+wget $(curl -s https://api.github.com/repos/Aries-Surya/knobu/releases/latest | grep "browser_download_url.*deb" | cut -d '"' -f 4) -O /tmp/knobu_latest.deb
+sudo apt install --reinstall /tmp/knobu_latest.deb
+
+# Restart your user service
+systemctl --user restart knobu.service
+
+# Verify installed version
+knobu --version
+```
+
+### Option B: Using GitHub CLI
+```bash
+gh release download --repo Aries-Surya/knobu --pattern "*.deb" --dir /tmp --clobber
+sudo apt install --reinstall /tmp/knobu_*_all.deb
+systemctl --user restart knobu.service
+knobu --version
+```
+
+### Option C: Web Browser
+1. Download the latest `.deb` asset from [GitHub Releases](https://github.com/Aries-Surya/knobu/releases/latest).
+2. Open terminal in your download directory and run:
+   ```bash
+   sudo apt install --reinstall ./knobu_*_all.deb
+   systemctl --user restart knobu.service
+   ```
+
+*(Your settings in `~/.config/knobu/` and clipboard history in `~/.local/share/knobu/` are automatically preserved during upgrades.)*
 
 ### Building the package
 
@@ -256,6 +321,9 @@ AI-generated contributions were reviewed, tested, and integrated as part of the 
 
 The use of AI tools does not change the project's licensing terms.
 
-## License
+## License & Attribution
 
 Knobu is free software, licensed under the [GNU GPL v3.0 or later](LICENSE).
+
+- **Original Author**: [saad-1719](https://github.com/Saad-1719/knobu) (Copyright © 2026)
+- **Fork Maintainer**: [Surya Prakash](https://github.com/Aries-Surya/knobu) (Copyright © 2026)

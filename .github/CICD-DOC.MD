@@ -47,7 +47,7 @@ flowchart TD
      ```
   2. **Package Build & Test Suite**:
      - Runs `dpkg-buildpackage -us -uc -b`.
-     - Automatically executes all 34 unittests under `tests/` during the pybuild test step (`override_dh_auto_test` in `debian/rules`).
+     - Automatically executes all 54 unittests under `tests/` during the pybuild test step (`override_dh_auto_test` in `debian/rules`) across all 7 core modules (Touchpad Gestures, Keyboard Manager, Awake, Color Picker, Text Extractor, Clipboard History, and Command Bar).
      - Moves generated debian files into a workspace-local `dist/` directory (`dist/*.deb`).
   3. **Package Verification**:
      - Installs `./dist/knobu_*_all.deb` using `apt-get`.
@@ -111,4 +111,34 @@ For `release-please` to open release PRs, ensure repository workflow permissions
 1. Navigate to **Settings** > **Actions** > **General** on GitHub.
 2. Under **Workflow permissions**, check **Allow GitHub Actions to create and approve pull requests**.
 3. Save settings.
+
+---
+
+## 4. End-User Installation & Upgrade Runbook
+
+When a new version tag (`vX.Y.Z`) is published, end users can install or upgrade Knobu directly from GitHub Releases:
+
+### Fast Terminal Upgrade
+```bash
+# 1. Download the latest release package
+wget $(curl -s https://api.github.com/repos/Aries-Surya/knobu/releases/latest | grep "browser_download_url.*deb" | cut -d '"' -f 4) -O /tmp/knobu_latest.deb
+
+# 2. Upgrade without touching user configuration or databases
+sudo apt install --reinstall /tmp/knobu_latest.deb
+
+# 3. Restart the background user service
+systemctl --user restart knobu.service
+
+# 4. Verify version
+knobu --version
+```
+
+### GitHub CLI Upgrade
+```bash
+gh release download --repo Aries-Surya/knobu --pattern "*.deb" --dir /tmp --clobber
+sudo apt install --reinstall /tmp/knobu_*_all.deb
+systemctl --user restart knobu.service
+knobu --version
+```
+
 

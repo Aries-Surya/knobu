@@ -7,4 +7,4 @@ knobu (0.1.0) questing; urgency=medium
     - Color Picker: pick a colour from the screen, with a magnifier on KDE.
     - Text Extractor: copy text from any area of the screen.
 
- -- saad-1719 <chsaad1407@gmail.com>  Tue, 03 Nov 2026 01:44:35 +0500
+ -- Surya Prakash <suryaprakash.g.official@gmail.com>  Tue, 03 Nov 2026 01:44:35 +0500

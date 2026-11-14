@@ -31,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Command Bar (PowerToys Run for Linux) (`src/knobu/modules/commandbar/`)**:
+  - Instant floating launcher palette summoned via `Alt+Space`, auto-dismissing on focus loss, `Escape`, or pressing `Alt+Space` again to toggle closed.
+  - Application search: scans `.desktop` files across system, user, Flatpak, and Snap directories with fuzzy matching and detached launching.
+  - Safe Calculator: AST-based mathematical evaluator supporting arithmetic, powers, percentages, functions (`sqrt`, `abs`, `round`, `sin`, `cos`, `tan`, `log`), and constants (`pi`, `e`) with copy-to-clipboard on Enter.
+  - Unit & Currency Converter: instant conversion for length, mass, storage, time, speed, volume, temperature, and 35+ currencies (`100 USD in EUR`, `50 miles in km`, `100 C in F`, `16 GB in MB`, `$100 in INR`).
+  - Emoji search & picker: prefix with `:` to search and copy emojis directly (e.g., `:fire`, `:rocket`, `:check`).
+  - Open windows & tab switcher: prefix with `<` or search open windows/browser tabs to switch focus instantly.
+  - Shell / Terminal command execution: prefix `>` runs commands directly in system terminal.
+  - Filesystem path navigation: typing `~/` or `/` navigates folders and opens files in default file manager.
+  - Web & quick search: direct URL opening and `? <query>` web searches in default browser.
+  - System commands: quick shortcuts for lock screen, sleep/suspend, restart, shutdown, and Knobu module launchers.
+  - Zero-conflict `Alt+Space` handling: kernel-level exclusive `evdev` grabbing, toggle-to-close dismiss, and automatic OS-level shortcut override for GNOME and KDE window manager shortcuts.
+  - Native GTK4/Adwaita Settings Dashboard for provider selection, max results, and manual OS shortcut management.
 - **Clipboard History & Manager Module (`src/knobu/modules/clipboard/`)**:
   - Full modular package architecture for clipboard history management and persistent SQLite storage (`~/.local/share/knobu/clipboard.db`).
   - Searchable floating palette summoned with `Super+V` (`Windows+V`), auto-dismissing on click outside or `Escape`.

@@ -4,12 +4,13 @@ in the daemon and the settings app."""
 from knobu.modules.awake import AwakeModule
 from knobu.modules.base import Module
 from knobu.modules.clipboard import ClipboardModule
+from knobu.modules.commandbar import CommandBarModule
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.touchpad import TouchpadModule
 
 MODULES: list[type[Module]] = [
-    TouchpadModule, KeyboardModule, AwakeModule, ClipboardModule, ColorPickerModule, TextExtractorModule,
+    TouchpadModule, KeyboardModule, AwakeModule, ClipboardModule, CommandBarModule, ColorPickerModule, TextExtractorModule,
 ]
 
 
