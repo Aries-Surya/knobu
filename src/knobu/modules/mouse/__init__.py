@@ -70,6 +70,7 @@ class MouseModule(Module):
     icon = "input-mouse-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "invert_wheel": False,
         "invert_hwheel": False,
         "scroll_multiplier": 1.0,
@@ -78,6 +79,10 @@ class MouseModule(Module):
     }
 
     def run(self, stop: threading.Event) -> None:
+        if bool(self.settings.get("bypass", False)):
+            self.log.info("mouse utilities bypassed by user")
+            return
+
         invert_wheel = bool(self.settings.get("invert_wheel", False))
         invert_hwheel = bool(self.settings.get("invert_hwheel", False))
         scroll_multiplier = float(self.settings.get("scroll_multiplier", 1.0))

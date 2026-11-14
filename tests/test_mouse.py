@@ -61,6 +61,14 @@ class TestMouse(unittest.TestCase):
         res_x = proc.process_event(ev_x)
         self.assertEqual(res_x[0], (e.EV_REL, e.REL_X, 15))
 
+    def test_mouse_bypass(self):
+        import threading
+        from knobu.modules.mouse import MouseModule
+        m = MouseModule({"enabled": True, "bypass": True, "invert_wheel": True})
+        stop = threading.Event()
+        m.run(stop)
+
+
 
 if __name__ == "__main__":
     unittest.main()

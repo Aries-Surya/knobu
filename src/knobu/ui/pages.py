@@ -242,6 +242,14 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             permissions.FIX_UINPUT))
     page = ModulePage(store, KeyboardModule, notices=notices)
 
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming & Passthrough",
+        description="Temporarily disable keyboard remaps, snippets, and quit protection without stopping other tools.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Keyboard Customizations",
+                            "Allow raw physical keystrokes to pass directly to applications"))
+    page.add(bp_group)
+
     group = Adw.PreferencesGroup(
         title="Remaps",
         description="A single key changes everywhere, even inside shortcuts "
@@ -393,6 +401,14 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             "Mouse utilities need permission to create a virtual pointing device. Run this in a terminal:",
             permissions.FIX_UINPUT))
     page = ModulePage(store, MouseModule, notices=notices)
+
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming & Passthrough",
+        description="Temporarily pass raw mouse wheel and button events directly without modification.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Mouse Customizations",
+                            "Allow physical mouse input to pass directly to applications"))
+    page.add(bp_group)
 
     # 1. Smooth & Independent Scrolling
     scroll_group = Adw.PreferencesGroup(
@@ -547,6 +563,35 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     group.add(status)
     group.add(autostart)
     page.add(group)
+
+    bypass_group = Adw.PreferencesGroup(
+        title="Bypass & OS Customization",
+        description="Temporarily bypass hardware grabs, input interception, and restore native OS shortcuts.",
+    )
+    bypass_switch = Adw.SwitchRow(
+        title="Master Bypass Mode",
+        subtitle="Temporarily suspend all hardware grabs, key remaps, and shortcuts (gaming and raw passthrough)",
+    )
+    gen_data = store.data.get("general", {})
+    bypass_switch.set_active(bool(gen_data.get("bypass", False)))
+
+    def on_bypass_change(sw, _p):
+        store.data.setdefault("general", {})["bypass"] = sw.get_active()
+        config.save(store.data)
+        service.reload()
+
+    bypass_switch.connect("notify::active", on_bypass_change)
+    bypass_group.add(bypass_switch)
+
+    from knobu.modules.commandbar.os_shortcuts import restore_os_shortcuts
+    restore_row = button_row(
+        "Default OS Shortcuts",
+        "Restore Original",
+        lambda: restore_os_shortcuts(),
+        "Restore standard GNOME / KDE window menu and search shortcuts if overridden by Knobu",
+    )
+    bypass_group.add(restore_row)
+    page.add(bypass_group)
 
     about = Adw.PreferencesGroup(title="About")
     about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),

@@ -85,6 +85,7 @@ class KeyboardModule(Module):
     icon = "knobu-keyboard-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "remaps": [],
         "snippets": [
             ";email -> user@example.com",
@@ -100,6 +101,10 @@ class KeyboardModule(Module):
     }
 
     def run(self, stop: threading.Event) -> None:
+        if bool(self.settings.get("bypass", False)):
+            self.log.info("Keyboard Manager customizations bypassed by user")
+            return
+
         remaps = []
         for text in self.settings.get("remaps", []):
             try:

@@ -38,6 +38,28 @@ def awake(arg: str) -> None:
     print(msg)
 
 
+def bypass_command(arg: str) -> None:
+    from knobu import config, service
+    data = config.load()
+    gen = data.setdefault("general", {})
+    current = bool(gen.get("bypass", False))
+    if arg == "on":
+        target = True
+    elif arg == "off":
+        target = False
+    elif arg == "toggle":
+        target = not current
+    else:  # status
+        print(f"Bypass Mode: {'ON (hardware grabs and customizations bypassed)' if current else 'OFF (Knobu active)'}")
+        return
+
+    gen["bypass"] = target
+    config.save(data)
+    service.reload()
+    print(f"Bypass Mode is now {'ON (hardware grabs and customizations bypassed)' if target else 'OFF (Knobu active)'}.")
+
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="knobu", description="PowerToys-style utilities for Ubuntu")
     parser.add_argument("--version", action="version", version=f"knobu {__version__}")
@@ -55,6 +77,10 @@ def main() -> None:
     sub.add_parser("paste-plain", help="paste current clipboard content as plain text")
     sub.add_parser("command-bar", help="open the Command Bar quick launcher")
     sub.add_parser("run", help="alias for command-bar")
+    p_bp = sub.add_parser("bypass", help="temporarily bypass all hardware grabs and customizations (e.g. for gaming)")
+    p_bp.add_argument("state", nargs="?", default="status", choices=["on", "off", "toggle", "status"],
+                      help="on | off | toggle | status (default: status)")
+    sub.add_parser("restore-os-shortcuts", help="restore default OS shortcuts overridden by Knobu (GNOME / KDE)")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -98,6 +124,12 @@ def main() -> None:
     elif args.command in ("command-bar", "run"):
         from knobu.ui.commandbar import main as commandbar_main
         sys.exit(commandbar_main())
+    elif args.command == "bypass":
+        bypass_command(args.state.lower())
+    elif args.command == "restore-os-shortcuts":
+        from knobu.modules.commandbar.os_shortcuts import restore_os_shortcuts
+        restored = restore_os_shortcuts()
+        print("Restored original OS shortcuts." if restored else "No overridden OS shortcuts to restore.")
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

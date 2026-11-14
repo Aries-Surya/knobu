@@ -25,8 +25,16 @@ class HotkeyService:
         self._lock = threading.Lock()
         self._bindings: dict[int, tuple[Chord, callable, bool]] = {}
         self._processor = None
+        self._bypass = False
         self._next_id = 0
         self._thread: threading.Thread | None = None
+
+    def set_bypass(self, bypass: bool) -> None:
+        with self._lock:
+            self._bypass = bypass
+            if self._thread is None and not bypass:
+                self._thread = threading.Thread(target=self._run, name="hotkeys", daemon=True)
+                self._thread.start()
 
     def set_keyboard_processor(self, processor) -> None:
         with self._lock:
@@ -81,11 +89,16 @@ class HotkeyService:
         try:
             while True:
                 with self._lock:
+                    is_bypassed = self._bypass
                     current_processor = self._processor
                     exclusive_needed = (
-                        current_processor is not None
-                        or any(excl for _, _, excl in self._bindings.values())
-                    ) and permissions.can_write_uinput()
+                        not is_bypassed
+                        and (
+                            current_processor is not None
+                            or any(excl for _, _, excl in self._bindings.values())
+                        )
+                        and permissions.can_write_uinput()
+                    )
 
                 if exclusive_needed and ui is None:
                     try:
@@ -137,6 +150,9 @@ class HotkeyService:
                         continue
 
                     for ev in events:
+                        if is_bypassed:
+                            continue
+
                         is_grabbed = fd in grabbed and ui is not None
                         if ev.type != e.EV_KEY:
                             if is_grabbed:

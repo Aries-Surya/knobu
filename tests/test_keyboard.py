@@ -138,6 +138,14 @@ class KeyboardModuleTests(unittest.TestCase):
         proc.process_event(DummyEv(e.KEY_A, 1), frozenset(), ui)
         self.assertEqual(ui.events, [(e.EV_KEY, e.KEY_A, 1)])
 
+    def test_keyboard_bypass(self):
+        import threading
+        from knobu.modules.keyboard import KeyboardModule
+        m = KeyboardModule({"enabled": True, "bypass": True})
+        stop = threading.Event()
+        m.run(stop)
+
+
 
 
 if __name__ == "__main__":

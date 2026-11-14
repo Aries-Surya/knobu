@@ -272,6 +272,10 @@ python3 -m venv --system-site-packages .venv
 | `knobu awake on\|off\|30m` | Keep the computer awake |
 | `knobu pick-color` | Pick a colour from the screen |
 | `knobu extract-text` | Copy text from an area of the screen |
+| `knobu command-bar` (or `run`) | Open the floating Command Bar launcher |
+| `knobu clipboard` | Open the Clipboard History palette |
+| `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
+| `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |
 | `knobu daemon` | Run the background service in the terminal (useful for debugging) |
 
 Settings live in `~/.config/knobu/config.toml`. Service logs:
