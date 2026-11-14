@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from knobu.modules.touchpad.gestures import GestureConfig, GestureRecognizer
 
@@ -159,7 +160,10 @@ class GestureTests(unittest.TestCase):
         g.frame(0, {}, {}, 0.2)
         self.assertEqual(rec.events, ["swipe4_down"])
 
-    def test_gesture_actions_dispatch(self):
+    @patch("knobu.modules.touchpad.native_volume_up", return_value=False)
+    @patch("knobu.modules.touchpad.native_volume_down", return_value=False)
+    @patch("knobu.modules.touchpad.native_mute_toggle", return_value=False)
+    def test_gesture_actions_dispatch(self, _m_mute, _m_down, _m_up):
         from unittest.mock import MagicMock
         from knobu.modules.touchpad import GestureActions
         mock_audio = MagicMock()

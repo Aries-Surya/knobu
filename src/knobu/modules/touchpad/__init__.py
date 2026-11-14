@@ -12,7 +12,7 @@ from knobu.modules.base import Module
 from knobu.modules.touchpad.gestures import GestureConfig, GestureRecognizer
 from knobu.system import launch, media
 from knobu.system.audio import Audio, system_max_volume
-from knobu.system.osd import VolumeOsd
+from knobu.system.osd import VolumeOsd, native_mute_toggle, native_volume_down, native_volume_up
 
 log = logging.getLogger("knobu.touchpad")
 
@@ -93,23 +93,25 @@ class GestureActions:
 
     def execute_action(self, action: str) -> None:
         if action == "volume_up":
-            vol, muted = self.audio.get()
-            if muted:
-                self.audio.set_mute(False)
-            new_vol = min(self.max_volume(), vol + 5)
-            self.audio.set_volume(new_vol)
-            self.osd.show(new_vol, self.max_volume())
-            self.log.info("gesture volume up: %d%%", new_vol)
+            if not native_volume_up():
+                vol, muted = self.audio.get()
+                if muted:
+                    self.audio.set_mute(False)
+                new_vol = min(self.max_volume(), vol + 5)
+                self.audio.set_volume(new_vol)
+            self.log.info("gesture volume up")
         elif action == "volume_down":
-            vol, muted = self.audio.get()
-            if muted:
-                self.audio.set_mute(False)
-            new_vol = max(0, vol - 5)
-            self.audio.set_volume(new_vol)
-            self.osd.show(new_vol, self.max_volume())
-            self.log.info("gesture volume down: %d%%", new_vol)
+            if not native_volume_down():
+                vol, muted = self.audio.get()
+                if muted:
+                    self.audio.set_mute(False)
+                new_vol = max(0, vol - 5)
+                self.audio.set_volume(new_vol)
+            self.log.info("gesture volume down")
         elif action == "mute":
-            self.toggle_mute()
+            if not native_mute_toggle():
+                self.toggle_mute()
+            self.log.info("gesture mute toggle")
         elif action in ("play_pause", "next", "previous", "next_track", "previous_track"):
             cmd_map = {
                 "play_pause": "PlayPause",
@@ -151,6 +153,7 @@ class GestureActions:
             self.execute_action(action)
 
     def on_drag_start(self, fingers: int = 3) -> None:
+        self._last_drag_mm = 0.0
         up_act = self.s.get(f"swipe{fingers}_up", "volume_slide" if fingers == 3 else "none")
         down_act = self.s.get(f"swipe{fingers}_down", "volume_slide" if fingers == 3 else "none")
         if up_act == "volume_slide" or down_act == "volume_slide":
@@ -165,17 +168,24 @@ class GestureActions:
         down_act = self.s.get(f"swipe{fingers}_down", "volume_slide" if fingers == 3 else "none")
         if up_act == "volume_slide" or down_act == "volume_slide":
             sign = -1 if self.s.get("invert", False) else 1
-            delta = sign * travel_mm / 10 * self.s.get("percent_per_cm", 16)
-            limit = max(self._max, self._base)
-            vol = max(0, min(limit, round(self._base + delta)))
-            if vol != self._last:
-                self.audio.set_volume(vol)
-                self.osd.show(vol, self._max)
-                self._last = vol
+            step_mm = max(3.0, 100.0 / self.s.get("percent_per_cm", 16) * 0.7)
+            delta_mm = (travel_mm - getattr(self, "_last_drag_mm", 0.0)) * sign
+            if abs(delta_mm) >= step_mm:
+                ticks = int(delta_mm / step_mm)
+                self._last_drag_mm = getattr(self, "_last_drag_mm", 0.0) + ticks * step_mm / sign
+                if ticks > 0:
+                    for _ in range(min(ticks, 5)):
+                        if not native_volume_up():
+                            vol, _ = self.audio.get()
+                            self.audio.set_volume(min(self.max_volume(), vol + 5))
+                elif ticks < 0:
+                    for _ in range(min(abs(ticks), 5)):
+                        if not native_volume_down():
+                            vol, _ = self.audio.get()
+                            self.audio.set_volume(max(0, vol - 5))
 
     def on_drag_end(self, fingers: int = 3) -> None:
-        if self._last is not None:
-            self.log.info("volume %d%%", self._last)
+        self._last_drag_mm = 0.0
 
     def on_tap(self, fingers: int) -> None:
         action = self.s.get(f"tap{fingers}_action", "none")
