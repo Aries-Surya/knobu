@@ -47,7 +47,7 @@ flowchart TD
      ```
   2. **Package Build & Test Suite**:
      - Runs `dpkg-buildpackage -us -uc -b`.
-     - Automatically executes all 75 unittests under `tests/` during the pybuild test step (`override_dh_auto_test` in `debian/rules`) across all 8 core modules (Touchpad Gestures, Keyboard Manager, Mouse Utilities, Awake, Clipboard History, Command Bar, Color Picker, and Text Extractor).
+     - Automatically executes all 77 unittests under `tests/` during the pybuild test step (`override_dh_auto_test` in `debian/rules`) across all 8 core modules (Touchpad Gestures, Keyboard Manager, Mouse Utilities, Awake, Clipboard History, Command Bar, Color Picker, and Text Extractor).
      - Moves generated debian files into a workspace-local `dist/` directory (`dist/*.deb`).
   3. **Package Verification**:
      - Installs `./dist/knobu_*_all.deb` using `apt-get`.

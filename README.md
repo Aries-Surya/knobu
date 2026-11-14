@@ -54,7 +54,7 @@ Each tool is a *module* you can turn on or off in the Knobu settings app.
 | Desktop | Status | Notes |
 |---|---|---|
 | Kubuntu (KDE Plasma 6) | ✅ Supported | All features, including the volume pop-up and Color Picker magnifier |
-| Ubuntu (GNOME) | 🧪 Beta | No volume pop-up or magnifier; use 4-finger gestures, since GNOME uses 3-finger swipes |
+| Ubuntu (GNOME) | ✅ Supported | Native on-screen volume indicator and 4-finger gestures (avoids GNOME 3-finger workspace conflict) |
 | Xubuntu, Lubuntu, Ubuntu MATE | 🔜 Planned | Start at login and the screen tools still need work |
 
 Found a problem on your desktop? Please open an issue and mention your flavour and version.

@@ -205,6 +205,25 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = TouchpadModule.id
     page = ModulePage(store, TouchpadModule, notices=input_notice())
 
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming & Passthrough",
+        description="Temporarily pass raw touchpad events directly without volume or tap action interception.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Touchpad Gestures",
+                            "Allow standard touchpad gestures and pointer movement without Knobu volume/media actions"))
+    page.add(bp_group)
+
+    from knobu.modules.commandbar.os_shortcuts import is_gnome
+    if is_gnome():
+        gnome_group = Adw.PreferencesGroup(title="GNOME Desktop Recommendation")
+        gnome_row = Adw.ActionRow(
+            title="Use 4-finger gestures on GNOME",
+            subtitle="GNOME natively captures 3-finger swipes for overview and workspace switching. "
+                     "Select '4 fingers' below to control volume smoothly without desktop conflicts.",
+        )
+        gnome_group.add(gnome_row)
+        page.add(gnome_group)
+
     volume = Adw.PreferencesGroup(title="Volume", description="Slide up or down to change volume.")
     volume.add(switch_row(store, mid, "volume_drag", "Slide to change volume"))
     volume.add(choice_row(store, mid, "fingers", "Slide with", "",
@@ -227,7 +246,7 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     feedback = Adw.PreferencesGroup(title="Feedback")
     feedback.add(switch_row(store, mid, "osd", "Show volume pop-up",
-                            "Uses your desktop's own volume display (KDE Plasma for now)"))
+                            "Uses your desktop's on-screen volume indicator (GNOME and KDE Plasma)"))
     page.add(feedback)
     return page
 

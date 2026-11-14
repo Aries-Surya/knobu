@@ -85,7 +85,8 @@ class TouchpadModule(Module):
     icon = "knobu-touchpad-symbolic"
     defaults = {
         "enabled": True,
-        "fingers": 3,  # finger count for the volume slide
+        "bypass": False,
+        "fingers": 3,  # finger count for the volume slide (use 4 on GNOME to avoid overview conflict)
         "volume_drag": True,
         "percent_per_cm": 16,
         "invert": False,
@@ -97,6 +98,10 @@ class TouchpadModule(Module):
     }
 
     def run(self, stop: threading.Event) -> None:
+        if bool(self.settings.get("bypass", False)):
+            self.log.info("Touchpad Gestures bypassed by user configuration")
+            return
+
         # Imported here so the settings app can list this module without evdev access.
         from knobu.modules.touchpad import device
 

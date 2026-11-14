@@ -112,6 +112,19 @@ class GestureTests(unittest.TestCase):
         g.frame(0, {}, 0.1)
         self.assertEqual(rec.events, ["tap3"])
 
+    def test_touchpad_bypass(self):
+        import threading
+        from knobu.modules.touchpad import TouchpadModule
+        m = TouchpadModule({"enabled": True, "bypass": True})
+        stop = threading.Event()
+        m.run(stop)
+
+    def test_volume_osd_detect(self):
+        from knobu.system.osd import VolumeOsd
+        osd = VolumeOsd(True)
+        self.assertTrue(osd.available)
+
+
 
 if __name__ == "__main__":
     unittest.main()
