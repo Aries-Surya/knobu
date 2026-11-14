@@ -7,10 +7,11 @@ from knobu.modules.clipboard import ClipboardModule
 from knobu.modules.commandbar import CommandBarModule
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
+from knobu.modules.mouse import MouseModule
 from knobu.modules.touchpad import TouchpadModule
 
 MODULES: list[type[Module]] = [
-    TouchpadModule, KeyboardModule, AwakeModule, ClipboardModule, CommandBarModule, ColorPickerModule, TextExtractorModule,
+    TouchpadModule, KeyboardModule, MouseModule, AwakeModule, ClipboardModule, CommandBarModule, ColorPickerModule, TextExtractorModule,
 ]
 
 

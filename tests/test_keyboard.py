@@ -97,5 +97,17 @@ class RemapperTests(unittest.TestCase):
         self.assertEqual(r.handle(e.KEY_LEFTMETA, 0), [(e.KEY_LEFTMETA, 0)])
 
 
+class KeyboardModuleTests(unittest.TestCase):
+    def test_module_defaults(self):
+        from knobu.modules.keyboard import KeyboardModule
+        self.assertEqual(KeyboardModule.id, "keyboard")
+        self.assertTrue(KeyboardModule.defaults["enabled"])
+        self.assertIn(";email -> user@example.com", KeyboardModule.defaults["snippets"])
+        self.assertTrue(KeyboardModule.defaults["enable_snippets"])
+        self.assertTrue(KeyboardModule.defaults["quit_protection"])
+        self.assertEqual(KeyboardModule.defaults["quit_protection_mode"], "hold")
+        self.assertFalse(KeyboardModule.defaults["key_debounce"])
+
+
 if __name__ == "__main__":
     unittest.main()

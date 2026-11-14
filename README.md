@@ -114,11 +114,21 @@ Remap keys and shortcuts on every keyboard, in every app, on Wayland and X11.
 - **Key → key** changes the key everywhere, even inside shortcuts. For example,
   CapsLock → Ctrl gives you a real Ctrl key.
 - **Shortcut → shortcut** changes only that combination, e.g. Super+E → Ctrl+Alt+T.
+- **Text Snippets Expansion**: Auto-expand abbreviations like `;email` into full text or dynamic date/time variables (`{date}`, `{time}`, `{datetime}`).
+- **Quit & Close Protection**: Prevents accidental loss of work by requiring hold (0.5s) or double-press for `Ctrl+Q` and `Ctrl+W`.
+- **Key Chatter Filter**: Software debouncing for worn mechanical switches to eliminate repeated characters.
 - Record remaps by pressing the keys: no key names to look up.
-- Nothing is intercepted while you have no remaps. New keyboards are picked up when
-  you plug them in.
+- Nothing is intercepted while you have no remaps or active keyboard tools. New keyboards are picked up when you plug them in.
 
 Needs a one-time permission to create a virtual keyboard (see [Requirements](#requirements)).
+
+### Mouse Utilities
+
+Configure mouse behavior independently of touchpad desktop settings:
+
+- **Independent Wheel Inversion**: Reverse mouse wheel direction without altering the touchpad scrolling direction.
+- **Smooth Scrolling & Speed Multiplier**: Adjust wheel scroll speed multiplier (0.25x to 5.0x).
+- **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches.
 
 ### Awake
 
@@ -277,8 +287,11 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
            |                                       |
            +-- systemctl --user reload knobu --> knobu daemon (systemd user service)
                                                    |-- Touchpad Gestures (reads the touchpad via evdev)
-                                                   |-- Keyboard Manager  (grabs keyboards, re-sends via uinput)
+                                                   |-- Keyboard Manager  (remaps, snippets, quit protection, chatter filter)
+                                                   |-- Mouse Utilities   (independent wheel invert, scroll multiplier, click debounce)
                                                    |-- Awake             (logind + ScreenSaver inhibitors)
+                                                   |-- Clipboard History (Super+V palette, image & text SQLite store)
+                                                   |-- Command Bar       (Alt+Space launcher, apps, calc, shell, emoji, converter)
                                                    '-- Color Picker, Text Extractor
                                                          (global shortcuts -> knobu pick-color / extract-text)
 ```

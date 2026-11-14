@@ -36,8 +36,10 @@ Description: PowerToys-style utilities for Ubuntu
     clip thumbnails, URL tracking parameter sanitization, and SQLite storage.
   * Touchpad Gestures: slide three fingers to change the volume, tap to mute
     or to play and pause media.
-  * Keyboard Manager: remap keys and shortcuts on every keyboard, in every
-    app, on Wayland and X11.
+  * Keyboard Manager: remap keys and shortcuts, expand text snippets, prevent
+    accidental window close (Ctrl+Q/W), and filter key chatter.
+  * Mouse Utilities: invert mouse wheel scroll independently of touchpad, adjust
+    scroll speed multipliers, and filter worn microswitch click bounce.
   * Awake: keep the computer and screen awake without changing power
     settings.
   * Color Picker: pick a colour from anywhere on screen and copy it as HEX,

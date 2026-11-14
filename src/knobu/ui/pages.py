@@ -21,6 +21,7 @@ from knobu.modules.commandbar import (
 )
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
+from knobu.modules.mouse import MouseModule
 from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
@@ -38,6 +39,18 @@ def button_row(title: str, label: str, callback, subtitle: str = "") -> Adw.Acti
     button.connect("clicked", lambda _b: callback())
     row.add_suffix(button)
     row.set_activatable_widget(button)
+    return row
+
+
+def float_spin_row(store: SettingsStore, module_id: str, key: str, title: str, subtitle: str,
+                   lower: float, upper: float, step: float = 0.1, digits: int = 1) -> Adw.SpinRow:
+    row = Adw.SpinRow.new_with_range(lower, upper, step)
+    row.set_use_markup(False)
+    row.set_digits(digits)
+    row.set_title(title)
+    row.set_subtitle(subtitle)
+    row.set_value(float(store.get(module_id, key)))
+    row.connect("notify::value", lambda r, _: store.set(module_id, key, round(float(r.get_value()), digits)))
     return row
 
 
@@ -285,6 +298,126 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     add.connect("clicked", on_add)
     rebuild()
+
+    # 2. Text Snippets Expansion
+    snip_group = Adw.PreferencesGroup(
+        title="Text Snippets Expansion",
+        description="Auto-expand abbreviations into full text as you type (e.g. ;email -> me@example.com, ;date -> {date}).",
+    )
+    snip_group.add(switch_row(store, mid, "enable_snippets", "Enable Text Snippets",
+                              "Expand snippet triggers dynamically while typing"))
+
+    snip_add_row = Adw.EntryRow(title="Add Snippet (trigger -> replacement)")
+    add_snip_btn = Gtk.Button(icon_name="list-add-symbolic", valign=Gtk.Align.CENTER,
+                              css_classes=["flat", "circular"], tooltip_text="Add snippet")
+    snip_add_row.add_suffix(add_snip_btn)
+    snip_group.add(snip_add_row)
+
+    snip_rows: list[Gtk.Widget] = []
+
+    def rebuild_snippets():
+        for r in snip_rows:
+            snip_group.remove(r)
+        snip_rows.clear()
+        snippets = store.get(mid, "snippets")
+        if not snippets:
+            row = Adw.ActionRow(title="No snippets defined",
+                                subtitle="Type a snippet above like ';email -> you@domain.com'")
+            snip_rows.append(row)
+            snip_group.add(row)
+            return
+
+        for item in snippets:
+            trig, _, rep = item.partition("->")
+            row = Adw.ActionRow(title=trig.strip(), subtitle=rep.strip())
+            del_btn = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remove",
+                                 css_classes=["flat", "circular"], valign=Gtk.Align.CENTER)
+            del_btn.connect("clicked", lambda _b, s=item: remove_snippet(s))
+            row.add_suffix(del_btn)
+            snip_rows.append(row)
+            snip_group.add(row)
+
+    def remove_snippet(item: str):
+        store.set(mid, "snippets", [s for s in store.get(mid, "snippets") if s != item])
+        rebuild_snippets()
+
+    def on_add_snippet(_w):
+        text = snip_add_row.get_text().strip()
+        if "->" in text:
+            existing = store.get(mid, "snippets")
+            trig, _, _ = text.partition("->")
+            filtered = [s for s in existing if not s.startswith(trig.strip() + " ->")]
+            store.set(mid, "snippets", filtered + [text])
+            snip_add_row.set_text("")
+            rebuild_snippets()
+
+    add_snip_btn.connect("clicked", on_add_snippet)
+    snip_add_row.connect("entry-activated", on_add_snippet)
+    rebuild_snippets()
+    page.add(snip_group)
+
+    # 3. Quit & Close Protection
+    quit_group = Adw.PreferencesGroup(
+        title="Quit & Close Protection",
+        description="Prevent accidental loss of work from Ctrl+Q or Ctrl+W.",
+    )
+    quit_group.add(switch_row(store, mid, "quit_protection", "Enable Quit & Close Protection",
+                              "Require hold or double-press before closing applications or windows"))
+    quit_group.add(choice_row(store, mid, "quit_protection_mode", "Confirmation Mode",
+                              "How to verify you intended to quit or close",
+                              [("hold", "Hold shortcut (e.g. 0.5s)"), ("double_press", "Double-press shortcut")]))
+    quit_group.add(float_spin_row(store, mid, "quit_protection_delay", "Hold / Window Duration (seconds)",
+                                  "Duration to hold or time window for double-press", 0.2, 2.0, 0.1, 1))
+    page.add(quit_group)
+
+    # 4. Key Chatter Filter
+    deb_group = Adw.PreferencesGroup(
+        title="Key Chatter Filter",
+        description="Debounce keys to prevent multiple characters from failing switches.",
+    )
+    deb_group.add(switch_row(store, mid, "key_debounce", "Enable Key Debounce Filter",
+                             "Drop mechanical contact chatter within the debounce threshold"))
+    deb_group.add(spin_row(store, mid, "key_debounce_ms", "Debounce Threshold (ms)",
+                           "Releases and re-presses faster than this window are suppressed", 10, 100, 5))
+    page.add(deb_group)
+
+    return page
+
+
+def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = MouseModule.id
+    notices = input_notice()
+    if not permissions.can_write_uinput():
+        notices.append(notice(
+            "One-time setup needed",
+            "Mouse utilities need permission to create a virtual pointing device. Run this in a terminal:",
+            permissions.FIX_UINPUT))
+    page = ModulePage(store, MouseModule, notices=notices)
+
+    # 1. Smooth & Independent Scrolling
+    scroll_group = Adw.PreferencesGroup(
+        title="Smooth & Independent Scrolling",
+        description="Configure mouse wheel scrolling independently of touchpad desktop settings.",
+    )
+    scroll_group.add(switch_row(store, mid, "invert_wheel", "Invert Mouse Wheel Direction",
+                                "Reverse vertical mouse wheel scroll direction independently of the touchpad"))
+    scroll_group.add(switch_row(store, mid, "invert_hwheel", "Invert Horizontal Scroll",
+                                "Reverse horizontal tilt wheel direction"))
+    scroll_group.add(float_spin_row(store, mid, "scroll_multiplier", "Scroll Speed Multiplier",
+                                    "Adjust mouse wheel speed multiplier (1.0 = standard speed)", 0.25, 5.0, 0.25, 2))
+    page.add(scroll_group)
+
+    # 2. Hardware Debounce Filter
+    deb_group = Adw.PreferencesGroup(
+        title="Hardware Debounce Filter",
+        description="Filter accidental double-clicks caused by worn mouse microswitches.",
+    )
+    deb_group.add(switch_row(store, mid, "mouse_debounce", "Enable Mouse Debounce Filter",
+                             "Suppress spurious click bounces within the debounce threshold"))
+    deb_group.add(spin_row(store, mid, "mouse_debounce_ms", "Debounce Threshold (ms)",
+                           "Clicks released and re-pressed faster than this window are suppressed", 10, 150, 5))
+    page.add(deb_group)
+
     return page
 
 
@@ -556,6 +689,7 @@ PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
+    (MouseModule.id, MouseModule.name, MouseModule.icon, mouse_page, "modules"),
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),

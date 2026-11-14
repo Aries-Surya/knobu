@@ -47,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Keyboard Manager Utilities (`src/knobu/modules/keyboard/`)**:
+  - **Text Snippets Expansion**: Low-latency evdev abbreviation expander replacing triggers (e.g. `;email`, `;date`, `;time`) with full text or dynamic date/time variables (`{date}`, `{time}`, `{datetime}`, `{year}`, `{month}`, `{day}`).
+  - **Quit & Close Protection**: Prevents accidental loss of work from `Ctrl+Q` and `Ctrl+W` by requiring hold (0.5s) or double-press confirmation with desktop notifications.
+  - **Key Chatter Filter**: Software debouncing for mechanical keyboard switches to filter contact bounce.
+- **Mouse Utilities Module (`src/knobu/modules/mouse/`)**:
+  - **Independent Wheel Inversion**: Reverse mouse wheel scroll direction without altering touchpad gestures or desktop touchpad settings.
+  - **Scroll Speed Multiplier**: Adjust mouse wheel speed multiplier (0.25x to 5.0x).
+  - **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches within configurable threshold (10ms to 150ms).
+  - Dedicated GTK4/Adwaita Mouse Utilities preferences page.
 - **Command Bar (PowerToys Run for Linux) (`src/knobu/modules/commandbar/`)**:
   - Instant floating launcher palette summoned via `Alt+Space`, auto-dismissing on focus loss, `Escape`, or pressing `Alt+Space` again to toggle closed.
   - Application search: scans `.desktop` files across system, user, Flatpak, and Snap directories with fuzzy matching and detached launching.
