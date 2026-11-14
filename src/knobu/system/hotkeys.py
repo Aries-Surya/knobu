@@ -24,8 +24,16 @@ class HotkeyService:
     def __init__(self):
         self._lock = threading.Lock()
         self._bindings: dict[int, tuple[Chord, callable, bool]] = {}
+        self._processor = None
         self._next_id = 0
         self._thread: threading.Thread | None = None
+
+    def set_keyboard_processor(self, processor) -> None:
+        with self._lock:
+            self._processor = processor
+            if self._thread is None:
+                self._thread = threading.Thread(target=self._run, name="hotkeys", daemon=True)
+                self._thread.start()
 
     def register(self, chord: Chord, callback, exclusive: bool = False) -> int:
         with self._lock:
@@ -73,7 +81,11 @@ class HotkeyService:
         try:
             while True:
                 with self._lock:
-                    exclusive_needed = any(excl for _, _, excl in self._bindings.values()) and permissions.can_write_uinput()
+                    current_processor = self._processor
+                    exclusive_needed = (
+                        current_processor is not None
+                        or any(excl for _, _, excl in self._bindings.values())
+                    ) and permissions.can_write_uinput()
 
                 if exclusive_needed and ui is None:
                     try:
@@ -82,15 +94,29 @@ class HotkeyService:
                         log.warning("can't create UInput for exclusive hotkeys: %s", err)
                         ui = None
 
+                if not exclusive_needed and ui is not None:
+                    for fd in list(grabbed):
+                        if fd in devices:
+                            try:
+                                devices[fd].ungrab()
+                            except OSError:
+                                pass
+                    grabbed.clear()
+                    ui.close()
+                    ui = None
+
                 if time.monotonic() - last_scan > RESCAN_SECONDS:
                     last_scan = time.monotonic()
                     known = {d.path for d in devices.values()}
                     for dev in keyboards.open_keyboards(skip=known, include_virtual=not exclusive_needed):
                         devices[dev.fd] = dev
-                        if exclusive_needed and ui is not None:
+
+                if exclusive_needed and ui is not None:
+                    for fd, dev in list(devices.items()):
+                        if fd not in grabbed:
                             try:
                                 dev.grab()
-                                grabbed.add(dev.fd)
+                                grabbed.add(fd)
                             except OSError:
                                 pass
 
@@ -118,13 +144,20 @@ class HotkeyService:
                                 ui.syn()
                             continue
 
+                        # 1. Debounce check from processor if active
+                        if current_processor and getattr(current_processor, "debouncer", None):
+                            if current_processor.debouncer.should_suppress(ev.code, ev.value):
+                                continue
+
                         if ev.code in consumed:
                             if ev.value == 0:
                                 consumed.discard(ev.code)
                             continue
 
+                        mods = self._get_live_modifiers(devices, dev)
+
+                        # 2. Check registered global hotkeys
                         if ev.value == 1 and ev.code not in MOD_OF_CODE:
-                            mods = self._get_live_modifiers(devices, dev)
                             swallowed = self._fire(ev.code, mods)
                             if swallowed and is_grabbed:
                                 consumed.add(ev.code)
@@ -133,6 +166,11 @@ class HotkeyService:
                                     ui.syn()
                                     ui.write(e.EV_KEY, e.KEY_F24, 0)
                                     ui.syn()
+                                continue
+
+                        # 3. Delegate to keyboard processor (quit protection, remap, text expander)
+                        if current_processor and is_grabbed:
+                            if current_processor.process_event(ev, mods, ui):
                                 continue
 
                         if is_grabbed:

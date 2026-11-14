@@ -21,7 +21,9 @@ def open_keyboards(skip: set[str] = frozenset(), include_virtual: bool = True) -
             dev = evdev.InputDevice(path)
         except OSError:
             continue
-        if is_keyboard(dev) and (include_virtual or dev.name != VIRTUAL_KEYBOARD_NAME):
+        name_lower = dev.name.lower()
+        is_virt = dev.name == VIRTUAL_KEYBOARD_NAME or "virtual" in name_lower or "helper" in name_lower
+        if is_keyboard(dev) and (include_virtual or not is_virt):
             found.append(dev)
         else:
             dev.close()

@@ -96,6 +96,7 @@ class TextExpander:
 
         self._buffer: list[str] = []
         self._max_buffer = 40
+        self._suppressed_trigger_key: int | None = None
 
     def process(
         self,
@@ -108,7 +109,16 @@ class TextExpander:
 
         Returns: (suppress_original_key: bool, events_to_emit: list[(code, value)])
         """
-        if not self.snippets or value != 1:  # Only track on press
+        if not self.snippets:
+            return False, []
+
+        if value == 0:
+            if self._suppressed_trigger_key == code:
+                self._suppressed_trigger_key = None
+                return True, []
+            return False, []
+
+        if value != 1:  # Only track on press
             return False, []
 
         # Handle backspace
@@ -147,6 +157,7 @@ class TextExpander:
             return False, []
 
         # Found trigger: suppress the last keypress and emit expansion
+        self._suppressed_trigger_key = code
         expansion = expand_variables(self.snippets[matched_trigger], now)
         self._buffer.clear()
 

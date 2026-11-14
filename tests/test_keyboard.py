@@ -108,6 +108,37 @@ class KeyboardModuleTests(unittest.TestCase):
         self.assertEqual(KeyboardModule.defaults["quit_protection_mode"], "hold")
         self.assertFalse(KeyboardModule.defaults["key_debounce"])
 
+    def test_processor_wiring(self):
+        from knobu.modules.keyboard import KeyboardProcessor
+
+        class DummyUI:
+            def __init__(self):
+                self.events = []
+            def write(self, typ, code, val):
+                self.events.append((typ, code, val))
+            def syn(self):
+                pass
+
+        proc = KeyboardProcessor(
+            remaps=[],
+            snippets=[";email -> user@example.com"],
+            enable_snippets=True,
+            quit_protection=False,
+            key_debounce=False,
+        )
+        ui = DummyUI()
+
+        class DummyEv:
+            def __init__(self, code, value):
+                self.type = e.EV_KEY
+                self.code = code
+                self.value = value
+
+        # Normal key pass through
+        proc.process_event(DummyEv(e.KEY_A, 1), frozenset(), ui)
+        self.assertEqual(ui.events, [(e.EV_KEY, e.KEY_A, 1)])
+
+
 
 if __name__ == "__main__":
     unittest.main()
