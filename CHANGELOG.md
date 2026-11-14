@@ -5,6 +5,22 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/Aries-Surya/knobu/compare/v0.2.0...v0.3.0) (2026-11-14)
+
+
+### Features
+
+* **commandbar:** add Command Bar (PowerToys Run for Linux) with Alt+Space exclusive grab and OS override ([d60867a](https://github.com/Aries-Surya/knobu/commit/d60867a76dd735149051120db6a5df25e224c208))
+* **commandbar:** add PowerToys Run Command Bar for Linux with converter, emoji, window switcher, and toggle ([9a4720b](https://github.com/Aries-Surya/knobu/commit/9a4720b5ed0bc1e6b262a98ba64d0354b33068a7))
+* **commandbar:** add unit converter, emoji picker, window switcher, and toggle-to-close ([ac1fd7b](https://github.com/Aries-Surya/knobu/commit/ac1fd7b825fb2e0e9f78393d23fb224285081cb0))
+
+
+### Documentation
+
+* add release download and upgrade runbook to README and CICD documentation ([49f0286](https://github.com/Aries-Surya/knobu/commit/49f0286e2d144eb503b14c880777a329a7a97595))
+* document Clipboard History module in README and Debian man/control files ([45b900c](https://github.com/Aries-Surya/knobu/commit/45b900c10e80d4a46be1f20d23548c0cf1358274))
+* **legal:** preserve original author copyright attribution under GPL-3.0 ([db1324c](https://github.com/Aries-Surya/knobu/commit/db1324c966e3e1b9854ae135291deb4bfa8020a0))
+
 ## [0.2.0](https://github.com/Aries-Surya/knobu/compare/v0.1.0...v0.2.0) (2026-11-13)
 
 
