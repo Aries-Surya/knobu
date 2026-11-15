@@ -7,7 +7,7 @@ knobu \- PowerToys-style utilities for Ubuntu
 .SH DESCRIPTION
 Knobu adds small power tools to the desktop: touchpad gestures for volume and
 media, key and shortcut remapping, keeping the computer awake, a colour picker,
-a text extractor, a clipboard history manager and a command bar quick launcher. Without a command, it opens the settings app.
+a text extractor, a clipboard history manager, a command bar quick launcher, and mouse & keyboard utilities (snippets, quit protection, debouncing, and independent wheel scrolling). Without a command, it opens the settings app.
 .SH COMMANDS
 .TP
 .B settings
@@ -36,6 +36,12 @@ Pick a colour from the screen.
 .TP
 .B extract-text
 Select an area of the screen and copy its text.
+.TP
+.BR bypass " [on|off|toggle|status]"
+Temporarily bypass all hardware grabs and customizations (useful for gaming and VMs).
+.TP
+.B restore-os-shortcuts
+Restore default OS desktop shortcuts overridden by Knobu.
 .TP
 .B daemon
 Run the background service in the foreground, for debugging.

@@ -28,6 +28,9 @@ def notify(summary: str, body: str = "", icon: str = "", image: str = "",
     return reply.unpack()[0] if reply else 0
 
 
+send = notify  # Convenient alias
+
+
 def close(notification_id: int) -> None:
     if notification_id:
         _call("CloseNotification", GLib.Variant("(u)", (notification_id,)))

@@ -1,5 +1,6 @@
 """The Knobu settings application: a sidebar of pages, PowerToys-style."""
 
+import cairo
 from gi.repository import Adw, Gio, GLib, GObject, Gtk
 
 from knobu import APP_ID, __version__, service

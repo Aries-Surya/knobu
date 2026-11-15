@@ -23,6 +23,13 @@ class Daemon:
 
     def start_modules(self) -> None:
         data = config.load()
+        bypass_all = bool(data.get("general", {}).get("bypass", False))
+        from knobu.system import hotkeys
+        hotkeys.service().set_bypass(bypass_all)
+        if bypass_all:
+            log.info("Bypass Mode is ACTIVE: all hardware grabs and customizations suspended")
+            return
+
         for cls in MODULES:
             settings = config.module_settings(data, cls.id, cls.defaults)
             if settings["enabled"]:
@@ -35,6 +42,8 @@ class Daemon:
         for module in self.running:
             module.stop()
         self.running.clear()
+        from knobu.system import hotkeys
+        hotkeys.service().set_keyboard_processor(None)
 
     def run(self) -> None:
         signal.signal(signal.SIGHUP, self._on_signal)

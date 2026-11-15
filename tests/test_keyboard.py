@@ -97,5 +97,56 @@ class RemapperTests(unittest.TestCase):
         self.assertEqual(r.handle(e.KEY_LEFTMETA, 0), [(e.KEY_LEFTMETA, 0)])
 
 
+class KeyboardModuleTests(unittest.TestCase):
+    def test_module_defaults(self):
+        from knobu.modules.keyboard import KeyboardModule
+        self.assertEqual(KeyboardModule.id, "keyboard")
+        self.assertTrue(KeyboardModule.defaults["enabled"])
+        self.assertIn(";email -> user@example.com", KeyboardModule.defaults["snippets"])
+        self.assertTrue(KeyboardModule.defaults["enable_snippets"])
+        self.assertTrue(KeyboardModule.defaults["quit_protection"])
+        self.assertEqual(KeyboardModule.defaults["quit_protection_mode"], "hold")
+        self.assertFalse(KeyboardModule.defaults["key_debounce"])
+
+    def test_processor_wiring(self):
+        from knobu.modules.keyboard import KeyboardProcessor
+
+        class DummyUI:
+            def __init__(self):
+                self.events = []
+            def write(self, typ, code, val):
+                self.events.append((typ, code, val))
+            def syn(self):
+                pass
+
+        proc = KeyboardProcessor(
+            remaps=[],
+            snippets=[";email -> user@example.com"],
+            enable_snippets=True,
+            quit_protection=False,
+            key_debounce=False,
+        )
+        ui = DummyUI()
+
+        class DummyEv:
+            def __init__(self, code, value):
+                self.type = e.EV_KEY
+                self.code = code
+                self.value = value
+
+        # Normal key pass through
+        proc.process_event(DummyEv(e.KEY_A, 1), frozenset(), ui)
+        self.assertEqual(ui.events, [(e.EV_KEY, e.KEY_A, 1)])
+
+    def test_keyboard_bypass(self):
+        import threading
+        from knobu.modules.keyboard import KeyboardModule
+        m = KeyboardModule({"enabled": True, "bypass": True})
+        stop = threading.Event()
+        m.run(stop)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()

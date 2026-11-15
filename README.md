@@ -54,7 +54,7 @@ Each tool is a *module* you can turn on or off in the Knobu settings app.
 | Desktop | Status | Notes |
 |---|---|---|
 | Kubuntu (KDE Plasma 6) | ✅ Supported | All features, including the volume pop-up and Color Picker magnifier |
-| Ubuntu (GNOME) | 🧪 Beta | No volume pop-up or magnifier; use 4-finger gestures, since GNOME uses 3-finger swipes |
+| Ubuntu (GNOME) | ✅ Supported | Native on-screen volume indicator and 4-finger gestures (avoids GNOME 3-finger workspace conflict) |
 | Xubuntu, Lubuntu, Ubuntu MATE | 🔜 Planned | Start at login and the screen tools still need work |
 
 Found a problem on your desktop? Please open an issue and mention your flavour and version.
@@ -89,23 +89,26 @@ Press **Super+V** (`Windows+V`) to summon a clean, searchable floating clipboard
 
 ### Touchpad Gestures
 
-| Gesture | Action |
-|---|---|
-| 3-finger slide up / down | Volume up / down, smoothly, as far as you slide |
-| 3-finger quick tap | Mute / unmute |
-| 4-finger quick tap | Play / pause music and videos |
+Precision multi-finger touchpad gestures with full 4-directional customization and zero OS conflict:
 
-- Works on Wayland and X11, alongside your desktop's own gestures.
-- Each tap can be set to mute, play/pause, next track, previous track, or nothing.
-- Media control works with any player that supports MPRIS: Spotify, browsers, VLC,
-  Rhythmbox, Elisa and more. The player that's currently playing gets the command.
-- Follows your desktop's maximum volume: 150% when KDE's "Raise maximum volume" or
-  GNOME's "Over-amplification" is on, 100% otherwise. You can also set your own limit.
-- Speed, direction and slide finger count (3 or 4) are configurable.
-- Shows your desktop's volume pop-up (KDE Plasma today, more desktops planned).
+| Gesture | Default Action | Supported Actions |
+|---|---|---|
+| **3-finger swipe up** | Volume Slide (smooth continuous) | Volume Slide, Volume Up (+5%), Overview, Desktop, Workspace Up, App Switch, Command Bar, None |
+| **3-finger swipe down** | Volume Slide (smooth continuous) | Volume Slide, Volume Down (-5%), Overview, Desktop, Workspace Down, App Switch, None |
+| **3-finger swipe left** | Previous Track (media) | Previous Track, Workspace Left, Previous App, None |
+| **3-finger swipe right** | Next Track (media) | Next Track, Workspace Right, Next App, None |
+| **4-finger swipe up** | Overview / Task View (`Super`) | Overview, Volume Slide, Volume Up, Workspace Up, Desktop, None |
+| **4-finger swipe down** | Show Desktop (`Super+D`) | Show Desktop, Volume Slide, Volume Down, Overview, None |
+| **4-finger swipe left** | Switch Workspace Left | Switch Workspace Left, Previous Track, Previous App, None |
+| **4-finger swipe right** | Switch Workspace Right | Switch Workspace Right, Next Track, Next App, None |
+| **3-finger quick tap** | Mute / Unmute | Mute, Play/Pause, Next, Previous, Overview, Desktop, Command Bar, None |
+| **4-finger quick tap** | Play / Pause media | Play/Pause, Mute, Next, Previous, Overview, Desktop, Command Bar, None |
 
-> **Tip:** Linux turns a 3-finger tap into a middle-click, which pastes text in some
-> apps. If that gets in the way, move mute to the 4-finger tap.
+- **Zero-Conflict OS Grab (`grab_gestures`)**: Claims touchpad exclusively during 3-finger and 4-finger gestures, preventing GNOME from double-triggering native workspace switching or overview. Ungrabs instantly on finger lift so normal 1-finger cursor and 2-finger scroll remain 100% native.
+- **Native On-Screen Volume Slider**: Volume adjustments trigger the desktop's native on-screen volume bubble without intrusive notification pop-ups.
+- **Works on Wayland and X11**: Independent of libinput desktop gesture bindings.
+- **Configurable Audio Limit & Speed**: Speed (percent per cm), inversion, and max volume (system, 100%, 125%, 150%) are fully adjustable.
+- **Gaming & Passthrough Mode**: Easily bypass all gestures via `knobu bypass on` or in the Settings UI.
 
 ### Keyboard Manager
 
@@ -114,11 +117,21 @@ Remap keys and shortcuts on every keyboard, in every app, on Wayland and X11.
 - **Key → key** changes the key everywhere, even inside shortcuts. For example,
   CapsLock → Ctrl gives you a real Ctrl key.
 - **Shortcut → shortcut** changes only that combination, e.g. Super+E → Ctrl+Alt+T.
+- **Text Snippets Expansion**: Auto-expand abbreviations like `;email` into full text or dynamic date/time variables (`{date}`, `{time}`, `{datetime}`).
+- **Quit & Close Protection**: Prevents accidental loss of work by requiring hold (0.5s) or double-press for `Ctrl+Q` and `Ctrl+W`.
+- **Key Chatter Filter**: Software debouncing for worn mechanical switches to eliminate repeated characters.
 - Record remaps by pressing the keys: no key names to look up.
-- Nothing is intercepted while you have no remaps. New keyboards are picked up when
-  you plug them in.
+- Nothing is intercepted while you have no remaps or active keyboard tools. New keyboards are picked up when you plug them in.
 
 Needs a one-time permission to create a virtual keyboard (see [Requirements](#requirements)).
+
+### Mouse Utilities
+
+Configure mouse behavior independently of touchpad desktop settings:
+
+- **Independent Wheel Inversion**: Reverse mouse wheel direction without altering the touchpad scrolling direction.
+- **Smooth Scrolling & Speed Multiplier**: Adjust wheel scroll speed multiplier (0.25x to 5.0x).
+- **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches.
 
 ### Awake
 
@@ -262,6 +275,10 @@ python3 -m venv --system-site-packages .venv
 | `knobu awake on\|off\|30m` | Keep the computer awake |
 | `knobu pick-color` | Pick a colour from the screen |
 | `knobu extract-text` | Copy text from an area of the screen |
+| `knobu command-bar` (or `run`) | Open the floating Command Bar launcher |
+| `knobu clipboard` | Open the Clipboard History palette |
+| `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
+| `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |
 | `knobu daemon` | Run the background service in the terminal (useful for debugging) |
 
 Settings live in `~/.config/knobu/config.toml`. Service logs:
@@ -277,8 +294,11 @@ knobu (settings app, GTK4)  --writes-->  ~/.config/knobu/config.toml
            |                                       |
            +-- systemctl --user reload knobu --> knobu daemon (systemd user service)
                                                    |-- Touchpad Gestures (reads the touchpad via evdev)
-                                                   |-- Keyboard Manager  (grabs keyboards, re-sends via uinput)
+                                                   |-- Keyboard Manager  (remaps, snippets, quit protection, chatter filter)
+                                                   |-- Mouse Utilities   (independent wheel invert, scroll multiplier, click debounce)
                                                    |-- Awake             (logind + ScreenSaver inhibitors)
+                                                   |-- Clipboard History (Super+V palette, image & text SQLite store)
+                                                   |-- Command Bar       (Alt+Space launcher, apps, calc, shell, emoji, converter)
                                                    '-- Color Picker, Text Extractor
                                                          (global shortcuts -> knobu pick-color / extract-text)
 ```

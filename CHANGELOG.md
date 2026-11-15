@@ -47,6 +47,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Touchpad Gestures Upgrade (`src/knobu/modules/touchpad/`)**:
+  - **Windows Precision Multi-Directional Swipes**: Independent actions for all 4 swipe directions across both 3-finger and 4-finger gestures (8 distinct directional swipe actions plus 3 and 4-finger taps).
+  - Supported actions: Smooth Volume Slide, Discrete Volume Step Up/Down (+/-5%), Media Play/Pause, Next Track, Previous Track, Mute/Unmute, Overview/Task View (`Super`), Show Desktop (`Super+D`), Workspace Left/Right/Up/Down, Application Switch (`Alt+Tab`, `Alt+Shift+Tab`), and Knobu Command Bar (`Alt+Space`).
+  - **Zero-Conflict OS Grab (`grab_gestures`)**: Claims touchpad hardware dynamically during 3 and 4-finger gestures to prevent GNOME from double-triggering native workspace switching or overview. Ungrabs instantly on finger lift.
+  - **Native On-Screen Volume Slider**: Volume adjustments trigger the desktop's native on-screen volume bubble without intrusive notification pop-ups.
+- **Global & Module Bypass System (`src/knobu/cli.py`, `src/knobu/daemon.py`)**:
+  - Master bypass command `knobu bypass on|off|toggle|status` and Settings UI switch to suspend all hardware grabs and customizations (ideal for gaming and virtual machines).
+  - Per-module bypass toggles for Touchpad, Keyboard, and Mouse utilities.
+  - Restore OS shortcuts utility `knobu restore-os-shortcuts` for restoring overridden desktop environment shortcuts.
+- **Keyboard Manager Utilities (`src/knobu/modules/keyboard/`)**:
+  - **Text Snippets Expansion**: Low-latency evdev abbreviation expander replacing triggers (e.g. `;email`, `;date`, `;time`) with full text or dynamic date/time variables (`{date}`, `{time}`, `{datetime}`, `{year}`, `{month}`, `{day}`).
+  - **Quit & Close Protection**: Prevents accidental loss of work from `Ctrl+Q` and `Ctrl+W` by requiring hold (0.5s) or double-press confirmation with desktop notifications.
+  - **Key Chatter Filter**: Software debouncing for mechanical keyboard switches to filter contact bounce.
+- **Mouse Utilities Module (`src/knobu/modules/mouse/`)**:
+  - **Independent Wheel Inversion**: Reverse mouse wheel scroll direction without altering touchpad gestures or desktop touchpad settings.
+  - **Scroll Speed Multiplier**: Adjust mouse wheel speed multiplier (0.25x to 5.0x).
+  - **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches within configurable threshold (10ms to 150ms).
+  - Dedicated GTK4/Adwaita Mouse Utilities preferences page.
 - **Command Bar (PowerToys Run for Linux) (`src/knobu/modules/commandbar/`)**:
   - Instant floating launcher palette summoned via `Alt+Space`, auto-dismissing on focus loss, `Escape`, or pressing `Alt+Space` again to toggle closed.
   - Application search: scans `.desktop` files across system, user, Flatpak, and Snap directories with fuzzy matching and detached launching.

@@ -11,6 +11,7 @@ magnifier.
 import os
 from pathlib import Path
 
+import cairo
 from gi.repository import Gdk, Gio, GLib, Gtk
 
 from knobu.ui.capture import Pixels, desktop_layout

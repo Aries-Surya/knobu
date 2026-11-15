@@ -1,10 +1,44 @@
-"""On-screen volume popup, using the desktop's own OSD where one is reachable.
+"""On-screen volume popup, using the desktop's native OSD.
 
-KDE Plasma exposes its OSD over D-Bus. GNOME Shell restricts its ShowOSD method to
-allow-listed callers, so on GNOME-based flavours there is no popup yet.
+Invokes hardware media keys (VolUp, VolDown, Mute) to trigger GNOME/KDE's default
+on-screen volume slider without creating notification banners.
 """
 
+from __future__ import annotations
+
+import os
+import shutil
 import subprocess
+
+
+def trigger_native_key(code: int) -> bool:
+    """Emits hardware media key (115=VolUp, 114=VolDown, 113=Mute) to summon native OS volume slider."""
+    if shutil.which("ydotool"):
+        try:
+            env = dict(os.environ)
+            env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+            subprocess.Popen(
+                ["ydotool", "key", f"{code}:1", f"{code}:0"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=env,
+            )
+            return True
+        except Exception:
+            pass
+    return False
+
+
+def native_volume_up() -> bool:
+    return trigger_native_key(115)
+
+
+def native_volume_down() -> bool:
+    return trigger_native_key(114)
+
+
+def native_mute_toggle() -> bool:
+    return trigger_native_key(113)
 
 
 class VolumeOsd:
@@ -16,9 +50,11 @@ class VolumeOsd:
         return self.backend is not None
 
     def show(self, percent: int, maximum: int = 100) -> None:
-        """Show the volume level on a 0..maximum scale; 0 renders as the muted icon."""
+        """Show volume on native OSD; suppresses intrusive notification popups."""
+        if not self.backend:
+            return
+
         if self.backend == "kde":
-            # Fire-and-forget so a slow D-Bus round trip never stalls a gesture.
             subprocess.Popen(
                 ["busctl", "--user", "call", "org.kde.plasmashell", "/org/kde/osdService",
                  "org.kde.osdService", "volumeChanged", "ii", str(percent), str(maximum)],
@@ -28,7 +64,10 @@ class VolumeOsd:
 def _detect() -> str | None:
     try:
         r = subprocess.run(["busctl", "--user", "status", "org.kde.plasmashell"],
-                           capture_output=True, timeout=2, check=False)
+                           capture_output=True, timeout=1, check=False)
+        if r.returncode == 0:
+            return "kde"
     except (OSError, subprocess.TimeoutExpired):
-        return None
-    return "kde" if r.returncode == 0 else None
+        pass
+
+    return "gnome"

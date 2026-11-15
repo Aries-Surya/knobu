@@ -21,7 +21,8 @@ from knobu.modules.commandbar import (
 )
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
-from knobu.modules.touchpad import TAP_ACTIONS, TouchpadModule
+from knobu.modules.mouse import MouseModule
+from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
@@ -38,6 +39,18 @@ def button_row(title: str, label: str, callback, subtitle: str = "") -> Adw.Acti
     button.connect("clicked", lambda _b: callback())
     row.add_suffix(button)
     row.set_activatable_widget(button)
+    return row
+
+
+def float_spin_row(store: SettingsStore, module_id: str, key: str, title: str, subtitle: str,
+                   lower: float, upper: float, step: float = 0.1, digits: int = 1) -> Adw.SpinRow:
+    row = Adw.SpinRow.new_with_range(lower, upper, step)
+    row.set_use_markup(False)
+    row.set_digits(digits)
+    row.set_title(title)
+    row.set_subtitle(subtitle)
+    row.set_value(float(store.get(module_id, key)))
+    row.connect("notify::value", lambda r, _: store.set(module_id, key, round(float(r.get_value()), digits)))
     return row
 
 
@@ -83,15 +96,20 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return Gtk.Label(label=label, xalign=0, css_classes=["dim-label", "summary"])
 
     if module_id == TouchpadModule.id:
-        fingers = store.get(module_id, "fingers")
-        return text(f"{fingers}-finger slide for volume · taps for mute and media")
+        return text("3 and 4-finger swipes · volume, media and multitasking")
     if module_id == KeyboardModule.id:
-        n = len(store.get(module_id, "remaps"))
-        return text(f"{n} remap{'s' if n != 1 else ''}" if n else "No remaps yet")
+        n = len(store.get(module_id, "remaps", []))
+        return text(f"{n} remap{'s' if n != 1 else ''}" if n else "Remaps, snippets and protection")
+    if module_id == MouseModule.id:
+        return text("Smooth scrolling and debounce filter")
+    if module_id == CommandBarModule.id:
+        hotkey = store.get(module_id, "hotkey", "alt+space")
+        return keycaps(hotkey) if hotkey else text("Alt+Space")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
     if module_id in (ClipboardModule.id, ColorPickerModule.id, TextExtractorModule.id):
-        return keycaps(store.get(module_id, "hotkey"))
+        hotkey = store.get(module_id, "hotkey", "")
+        return keycaps(hotkey) if hotkey else text("")
     return text("")
 
 
@@ -192,30 +210,56 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     mid = TouchpadModule.id
     page = ModulePage(store, TouchpadModule, notices=input_notice())
 
-    volume = Adw.PreferencesGroup(title="Volume", description="Slide up or down to change volume.")
-    volume.add(switch_row(store, mid, "volume_drag", "Slide to change volume"))
-    volume.add(choice_row(store, mid, "fingers", "Slide with", "",
-                          [(3, "3 fingers"), (4, "4 fingers")]))
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming and Passthrough",
+        description="Temporarily pass raw touchpad events directly without gesture interception.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Touchpad Gestures",
+                            "Allow standard touchpad gestures and pointer movement without Knobu actions"))
+    bp_group.add(switch_row(store, mid, "grab_gestures", "Prevent OS Double-Trigger",
+                            "Claim touchpad exclusively during 3 and 4-finger gestures so GNOME does not simultaneously trigger desktop gestures"))
+    page.add(bp_group)
+
+    gesture_opts = list(GESTURE_ACTIONS.items())
+    tap_opts = list(TAP_ACTIONS.items())
+
+    # 1. Three-Finger Gestures (Windows Precision style)
+    three_group = Adw.PreferencesGroup(
+        title="Three-Finger Gestures",
+        description="Configure actions for 3-finger swipes and taps.",
+    )
+    three_group.add(choice_row(store, mid, "swipe3_up", "Swipe Up", "Action for 3-finger swipe up", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_down", "Swipe Down", "Action for 3-finger swipe down", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_left", "Swipe Left", "Action for 3-finger swipe left", gesture_opts))
+    three_group.add(choice_row(store, mid, "swipe3_right", "Swipe Right", "Action for 3-finger swipe right", gesture_opts))
+    three_group.add(choice_row(store, mid, "tap3_action", "Tap Action", "Action for 3-finger tap", tap_opts))
+    page.add(three_group)
+
+    # 2. Four-Finger Gestures (Windows Precision style)
+    four_group = Adw.PreferencesGroup(
+        title="Four-Finger Gestures",
+        description="Configure actions for 4-finger swipes and taps.",
+    )
+    four_group.add(choice_row(store, mid, "swipe4_up", "Swipe Up", "Action for 4-finger swipe up", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_down", "Swipe Down", "Action for 4-finger swipe down", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_left", "Swipe Left", "Action for 4-finger swipe left", gesture_opts))
+    four_group.add(choice_row(store, mid, "swipe4_right", "Swipe Right", "Action for 4-finger swipe right", gesture_opts))
+    four_group.add(choice_row(store, mid, "tap4_action", "Tap Action", "Action for 4-finger tap", tap_opts))
+    page.add(four_group)
+
+    # 3. Audio & Sensitivity
+    volume = Adw.PreferencesGroup(title="Volume Slide Sensitivity", description="Settings for continuous volume sliding.")
     volume.add(spin_row(store, mid, "percent_per_cm", "Speed",
-                        "Volume change (%) per centimetre of movement", 5, 50))
-    volume.add(switch_row(store, mid, "invert", "Reverse direction", "Slide down to make it louder"))
+                        "Volume change (%) per centimetre of vertical movement", 5, 50))
+    volume.add(switch_row(store, mid, "invert", "Reverse direction", "Slide down to increase volume"))
     volume.add(choice_row(
         store, mid, "max_volume", "Maximum volume", "Above 100% amplifies and may distort",
         [("system", f"Same as system ({system_max_volume()}%)"),
          (100, "100%"), (125, "125%"), (150, "150%")]))
+    volume.add(switch_row(store, mid, "osd", "Show volume pop-up",
+                          "Uses your desktop on-screen volume indicator (GNOME and KDE Plasma)"))
     page.add(volume)
 
-    taps = Adw.PreferencesGroup(title="Taps", description="A quick tap with several fingers.")
-    actions = list(TAP_ACTIONS.items())
-    taps.add(choice_row(store, mid, "tap3_action", "3-finger tap",
-                        "Linux also sends a middle-click on this tap", actions))
-    taps.add(choice_row(store, mid, "tap4_action", "4-finger tap", "", actions))
-    page.add(taps)
-
-    feedback = Adw.PreferencesGroup(title="Feedback")
-    feedback.add(switch_row(store, mid, "osd", "Show volume pop-up",
-                            "Uses your desktop's own volume display (KDE Plasma for now)"))
-    page.add(feedback)
     return page
 
 
@@ -228,6 +272,14 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             "Remapping needs permission to create a virtual keyboard. Run this in a terminal:",
             permissions.FIX_UINPUT))
     page = ModulePage(store, KeyboardModule, notices=notices)
+
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming and Passthrough",
+        description="Temporarily disable keyboard remaps, snippets, and quit protection without stopping other tools.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Keyboard Customizations",
+                            "Allow raw physical keystrokes to pass directly to applications"))
+    page.add(bp_group)
 
     group = Adw.PreferencesGroup(
         title="Remaps",
@@ -285,6 +337,134 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
     add.connect("clicked", on_add)
     rebuild()
+
+    # 2. Text Snippets Expansion
+    snip_group = Adw.PreferencesGroup(
+        title="Text Snippets Expansion",
+        description="Auto-expand abbreviations into full text as you type (e.g. ;email -> me@example.com, ;date -> {date}).",
+    )
+    snip_group.add(switch_row(store, mid, "enable_snippets", "Enable Text Snippets",
+                              "Expand snippet triggers dynamically while typing"))
+
+    snip_add_row = Adw.EntryRow(title="Add Snippet (trigger -> replacement)")
+    add_snip_btn = Gtk.Button(icon_name="list-add-symbolic", valign=Gtk.Align.CENTER,
+                              css_classes=["flat", "circular"], tooltip_text="Add snippet")
+    snip_add_row.add_suffix(add_snip_btn)
+    snip_group.add(snip_add_row)
+
+    snip_rows: list[Gtk.Widget] = []
+
+    def rebuild_snippets():
+        for r in snip_rows:
+            snip_group.remove(r)
+        snip_rows.clear()
+        snippets = store.get(mid, "snippets")
+        if not snippets:
+            row = Adw.ActionRow(title="No snippets defined",
+                                subtitle="Type a snippet above like ';email -> you@domain.com'")
+            snip_rows.append(row)
+            snip_group.add(row)
+            return
+
+        for item in snippets:
+            trig, _, rep = item.partition("->")
+            row = Adw.ActionRow(title=trig.strip(), subtitle=rep.strip())
+            del_btn = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remove",
+                                 css_classes=["flat", "circular"], valign=Gtk.Align.CENTER)
+            del_btn.connect("clicked", lambda _b, s=item: remove_snippet(s))
+            row.add_suffix(del_btn)
+            snip_rows.append(row)
+            snip_group.add(row)
+
+    def remove_snippet(item: str):
+        store.set(mid, "snippets", [s for s in store.get(mid, "snippets") if s != item])
+        rebuild_snippets()
+
+    def on_add_snippet(_w):
+        text = snip_add_row.get_text().strip()
+        if "->" in text:
+            existing = store.get(mid, "snippets")
+            trig, _, _ = text.partition("->")
+            filtered = [s for s in existing if not s.startswith(trig.strip() + " ->")]
+            store.set(mid, "snippets", filtered + [text])
+            snip_add_row.set_text("")
+            rebuild_snippets()
+
+    add_snip_btn.connect("clicked", on_add_snippet)
+    snip_add_row.connect("entry-activated", on_add_snippet)
+    rebuild_snippets()
+    page.add(snip_group)
+
+    # 3. Quit & Close Protection
+    quit_group = Adw.PreferencesGroup(
+        title="Quit and Close Protection",
+        description="Prevent accidental loss of work from Ctrl+Q or Ctrl+W.",
+    )
+    quit_group.add(switch_row(store, mid, "quit_protection", "Enable Quit and Close Protection",
+                              "Require hold or double-press before closing applications or windows"))
+    quit_group.add(choice_row(store, mid, "quit_protection_mode", "Confirmation Mode",
+                              "How to verify you intended to quit or close",
+                              [("hold", "Hold shortcut (e.g. 0.5s)"), ("double_press", "Double-press shortcut")]))
+    quit_group.add(float_spin_row(store, mid, "quit_protection_delay", "Hold / Window Duration (seconds)",
+                                  "Duration to hold or time window for double-press", 0.2, 2.0, 0.1, 1))
+    page.add(quit_group)
+
+    # 4. Key Chatter Filter
+    deb_group = Adw.PreferencesGroup(
+        title="Key Chatter Filter",
+        description="Debounce keys to prevent multiple characters from failing switches.",
+    )
+    deb_group.add(switch_row(store, mid, "key_debounce", "Enable Key Debounce Filter",
+                             "Drop mechanical contact chatter within the debounce threshold"))
+    deb_group.add(spin_row(store, mid, "key_debounce_ms", "Debounce Threshold (ms)",
+                           "Releases and re-presses faster than this window are suppressed", 10, 100, 5))
+    page.add(deb_group)
+
+    return page
+
+
+def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = MouseModule.id
+    notices = input_notice()
+    if not permissions.can_write_uinput():
+        notices.append(notice(
+            "One-time setup needed",
+            "Mouse utilities need permission to create a virtual pointing device. Run this in a terminal:",
+            permissions.FIX_UINPUT))
+    page = ModulePage(store, MouseModule, notices=notices)
+
+    bp_group = Adw.PreferencesGroup(
+        title="Gaming and Passthrough",
+        description="Temporarily pass raw mouse wheel and button events directly without modification.",
+    )
+    bp_group.add(switch_row(store, mid, "bypass", "Bypass Mouse Customizations",
+                            "Allow physical mouse input to pass directly to applications"))
+    page.add(bp_group)
+
+    # 1. Smooth & Independent Scrolling
+    scroll_group = Adw.PreferencesGroup(
+        title="Smooth and Independent Scrolling",
+        description="Configure mouse wheel scrolling independently of touchpad desktop settings.",
+    )
+    scroll_group.add(switch_row(store, mid, "invert_wheel", "Invert Mouse Wheel Direction",
+                                "Reverse vertical mouse wheel scroll direction independently of the touchpad"))
+    scroll_group.add(switch_row(store, mid, "invert_hwheel", "Invert Horizontal Scroll",
+                                "Reverse horizontal tilt wheel direction"))
+    scroll_group.add(float_spin_row(store, mid, "scroll_multiplier", "Scroll Speed Multiplier",
+                                    "Adjust mouse wheel speed multiplier (1.0 = standard speed)", 0.25, 5.0, 0.25, 2))
+    page.add(scroll_group)
+
+    # 2. Hardware Debounce Filter
+    deb_group = Adw.PreferencesGroup(
+        title="Hardware Debounce Filter",
+        description="Filter accidental double-clicks caused by worn mouse microswitches.",
+    )
+    deb_group.add(switch_row(store, mid, "mouse_debounce", "Enable Mouse Debounce Filter",
+                             "Suppress spurious click bounces within the debounce threshold"))
+    deb_group.add(spin_row(store, mid, "mouse_debounce_ms", "Debounce Threshold (ms)",
+                           "Clicks released and re-pressed faster than this window are suppressed", 10, 150, 5))
+    page.add(deb_group)
+
     return page
 
 
@@ -415,6 +595,35 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     group.add(autostart)
     page.add(group)
 
+    bypass_group = Adw.PreferencesGroup(
+        title="Bypass and OS Customization",
+        description="Temporarily bypass hardware grabs, input interception, and restore native OS shortcuts.",
+    )
+    bypass_switch = Adw.SwitchRow(
+        title="Master Bypass Mode",
+        subtitle="Temporarily suspend all hardware grabs, key remaps, and shortcuts (gaming and raw passthrough)",
+    )
+    gen_data = store.data.get("general", {})
+    bypass_switch.set_active(bool(gen_data.get("bypass", False)))
+
+    def on_bypass_change(sw, _p):
+        store.data.setdefault("general", {})["bypass"] = sw.get_active()
+        config.save(store.data)
+        service.reload()
+
+    bypass_switch.connect("notify::active", on_bypass_change)
+    bypass_group.add(bypass_switch)
+
+    from knobu.modules.commandbar.os_shortcuts import restore_os_shortcuts
+    restore_row = button_row(
+        "Default OS Shortcuts",
+        "Restore Original",
+        lambda: restore_os_shortcuts(),
+        "Restore standard GNOME / KDE window menu and search shortcuts if overridden by Knobu",
+    )
+    bypass_group.add(restore_row)
+    page.add(bypass_group)
+
     about = Adw.PreferencesGroup(title="About")
     about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),
                          "Version, credits and license"))
@@ -528,11 +737,11 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                               "Open URLs directly or search the web with '? search query'"))
     prov_group.add(switch_row(store, mid, "enable_system", "System Actions",
                               "Quick commands for lock screen, sleep, restart, and Knobu tools"))
-    prov_group.add(switch_row(store, mid, "enable_converter", "Unit & Currency Converter",
+    prov_group.add(switch_row(store, mid, "enable_converter", "Unit and Currency Converter",
                               "Convert units and currencies (e.g. 100 USD in EUR, 50 miles in km, 100 C in F)"))
     prov_group.add(switch_row(store, mid, "enable_emoji", "Emoji Picker",
                               "Search and copy emojis prefixed with ':' (e.g. :fire, :rocket, :check)"))
-    prov_group.add(switch_row(store, mid, "enable_windows", "Window & Tab Switcher",
+    prov_group.add(switch_row(store, mid, "enable_windows", "Window and Tab Switcher",
                               "Switch to open windows and browser tabs, prefixed with '<' (e.g. < code, < cliq)"))
     page.add(prov_group)
 
@@ -556,6 +765,7 @@ PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
+    (MouseModule.id, MouseModule.name, MouseModule.icon, mouse_page, "modules"),
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),

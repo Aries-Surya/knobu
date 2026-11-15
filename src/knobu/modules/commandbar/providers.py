@@ -1220,8 +1220,10 @@ class WindowProvider:
 # ==============================================================================
 
 class SearchEngine:
-    def __init__(self, settings: dict | None = None):
-        self.settings = settings or {}
+    def __init__(self, settings: dict | None = None, **kwargs):
+        self.settings = dict(settings or {})
+        if kwargs:
+            self.settings.update(kwargs)
         self.apps = AppProvider()
         self.calc = CalculatorProvider()
         self.shell = ShellProvider()

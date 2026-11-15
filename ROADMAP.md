@@ -85,19 +85,19 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 6: Keyboard & Mouse Utilities ⌨️🖱️
+## Milestone 6: Keyboard & Mouse Utilities ⌨️🖱️ ✅
 
 *Inspired by Vorssaint Keyboard & Mouse Tools*
 
-- [ ] **Text Snippets Expansion**:
-  - Evdev abbreviation engine expanding triggers (e.g., `;email` -> full email address) with dynamic date/time variables.
-- [ ] **Quit & Close Protection**:
+- [X] **Text Snippets Expansion**:
+  - Evdev abbreviation engine expanding triggers (e.g., `;email` -> full email address) with dynamic date/time variables (`{date}`, `{time}`, `{datetime}`, `{year}`, `{month}`, `{day}`).
+- [X] **Quit & Close Protection**:
   - Require hold (0.5s) or double-press for `Ctrl+Q` or `Ctrl+W` in designated apps to prevent accidental loss of work.
-- [ ] **Hardware Debounce Filter**:
-  - Software debouncing for worn mouse switches (double-click filtering) and key chatter.
-- [ ] **Smooth & Independent Scrolling**:
+- [X] **Hardware Debounce Filter**:
+  - Software debouncing for worn mouse switches (double-click filtering) and mechanical key chatter.
+- [X] **Smooth & Independent Scrolling**:
   - Per-device scroll direction inversion (invert mouse wheel independently of touchpad).
-  - Smooth scroll acceleration curve adjustments.
+  - Smooth scroll acceleration and speed multiplier adjustments.
 
 ---
 
