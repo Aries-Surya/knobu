@@ -89,23 +89,26 @@ Press **Super+V** (`Windows+V`) to summon a clean, searchable floating clipboard
 
 ### Touchpad Gestures
 
-| Gesture | Action |
-|---|---|
-| 3-finger slide up / down | Volume up / down, smoothly, as far as you slide |
-| 3-finger quick tap | Mute / unmute |
-| 4-finger quick tap | Play / pause music and videos |
+Precision multi-finger touchpad gestures with full 4-directional customization and zero OS conflict:
 
-- Works on Wayland and X11, alongside your desktop's own gestures.
-- Each tap can be set to mute, play/pause, next track, previous track, or nothing.
-- Media control works with any player that supports MPRIS: Spotify, browsers, VLC,
-  Rhythmbox, Elisa and more. The player that's currently playing gets the command.
-- Follows your desktop's maximum volume: 150% when KDE's "Raise maximum volume" or
-  GNOME's "Over-amplification" is on, 100% otherwise. You can also set your own limit.
-- Speed, direction and slide finger count (3 or 4) are configurable.
-- Shows your desktop's volume pop-up (KDE Plasma today, more desktops planned).
+| Gesture | Default Action | Supported Actions |
+|---|---|---|
+| **3-finger swipe up** | Volume Slide (smooth continuous) | Volume Slide, Volume Up (+5%), Overview, Desktop, Workspace Up, App Switch, Command Bar, None |
+| **3-finger swipe down** | Volume Slide (smooth continuous) | Volume Slide, Volume Down (-5%), Overview, Desktop, Workspace Down, App Switch, None |
+| **3-finger swipe left** | Previous Track (media) | Previous Track, Workspace Left, Previous App, None |
+| **3-finger swipe right** | Next Track (media) | Next Track, Workspace Right, Next App, None |
+| **4-finger swipe up** | Overview / Task View (`Super`) | Overview, Volume Slide, Volume Up, Workspace Up, Desktop, None |
+| **4-finger swipe down** | Show Desktop (`Super+D`) | Show Desktop, Volume Slide, Volume Down, Overview, None |
+| **4-finger swipe left** | Switch Workspace Left | Switch Workspace Left, Previous Track, Previous App, None |
+| **4-finger swipe right** | Switch Workspace Right | Switch Workspace Right, Next Track, Next App, None |
+| **3-finger quick tap** | Mute / Unmute | Mute, Play/Pause, Next, Previous, Overview, Desktop, Command Bar, None |
+| **4-finger quick tap** | Play / Pause media | Play/Pause, Mute, Next, Previous, Overview, Desktop, Command Bar, None |
 
-> **Tip:** Linux turns a 3-finger tap into a middle-click, which pastes text in some
-> apps. If that gets in the way, move mute to the 4-finger tap.
+- **Zero-Conflict OS Grab (`grab_gestures`)**: Claims touchpad exclusively during 3-finger and 4-finger gestures, preventing GNOME from double-triggering native workspace switching or overview. Ungrabs instantly on finger lift so normal 1-finger cursor and 2-finger scroll remain 100% native.
+- **Native On-Screen Volume Slider**: Volume adjustments trigger the desktop's native on-screen volume bubble without intrusive notification pop-ups.
+- **Works on Wayland and X11**: Independent of libinput desktop gesture bindings.
+- **Configurable Audio Limit & Speed**: Speed (percent per cm), inversion, and max volume (system, 100%, 125%, 150%) are fully adjustable.
+- **Gaming & Passthrough Mode**: Easily bypass all gestures via `knobu bypass on` or in the Settings UI.
 
 ### Keyboard Manager
 
