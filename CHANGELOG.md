@@ -5,6 +5,30 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/Aries-Surya/knobu/compare/v0.3.0...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* **input:** add master and per-module bypass for hardware grabs and OS customizations ([46e9549](https://github.com/Aries-Surya/knobu/commit/46e9549309747904058c1a2dc8574f1b5297bc07))
+* **input:** add Text Snippets, Quit Protection, Hardware Debounce, and Mouse Utilities ([d23757c](https://github.com/Aries-Surya/knobu/commit/d23757cf81827f70043da43b5dde7933b94c803f))
+* **input:** Precision Touchpad Gestures, Mouse Utilities, Keyboard Manager & Master Bypass ([08d4639](https://github.com/Aries-Surya/knobu/commit/08d4639ce797d1330b670e32410cac6f46308453))
+* **osd:** trigger native OS volume slider directly and suppress notification banners ([3c3b7c0](https://github.com/Aries-Surya/knobu/commit/3c3b7c0763df74f0a3cde5a92ec896a87a289d89))
+* **touchpad:** add bypass toggle and full GNOME desktop volume OSD support ([e23cc57](https://github.com/Aries-Surya/knobu/commit/e23cc5723d04e4e053d1acc204e9bda8c15e4faf))
+* **touchpad:** Windows-style 3 and 4-finger swipes with exclusive grab to eliminate GNOME double-trigger ([8dbc4a6](https://github.com/Aries-Surya/knobu/commit/8dbc4a6db8931422f0ee64bb6a588761432653eb))
+
+
+### Bug Fixes
+
+* **input:** unify keyboard grabbing with hotkeys and fix notification/timing ([a4a2685](https://github.com/Aries-Surya/knobu/commit/a4a268583c2f75c48a4899a9b8dcd1f77e0226a2))
+* **ui:** escape pango ampersands, import cairo for drawing areas, and support search kwargs ([3906357](https://github.com/Aries-Surya/knobu/commit/39063577da04e9e5b40f8c2d152f90d7cebea1da))
+* **ui:** resolve KeyError in module_summary for dashboard card rendering ([f6df0f4](https://github.com/Aries-Surya/knobu/commit/f6df0f47e5dcfd54054d97e55e73ea5828c0d06d))
+
+
+### Documentation
+
+* document Windows Precision touchpad gestures and bypass system in README and CHANGELOG ([5f7cd5e](https://github.com/Aries-Surya/knobu/commit/5f7cd5edb59e45d4662df04332a1be089a9e4e56))
+
 ## [0.3.0](https://github.com/Aries-Surya/knobu/compare/v0.2.0...v0.3.0) (2026-11-14)
 
 
