@@ -440,7 +440,7 @@ class StatusTray:
                 node = self._items_by_id.get(parent_id, self._root)
                 rev = self._revision
                 layout_var = node.to_variant(depth)
-            invocation.return_value(GLib.Variant("(u(ia{sv}av))", (rev, layout_var.unpack())))
+            invocation.return_value(GLib.Variant.new_tuple(GLib.Variant.new_uint32(rev), layout_var))
         elif method == "GetGroupProperties":
             ids, _prop_names = params.unpack()
             with self._lock:

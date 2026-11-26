@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from gi.repository import GLib
 from knobu.modules.notifications.store import NotificationHistory
 from knobu.modules.powertools.aws_cli import parse_aws_files
 from knobu.modules.powertools.network import parse_network_info
@@ -63,6 +64,8 @@ class TestTrayAndNotifications(unittest.TestCase):
             self.assertTrue(any("AWS Profile: prod" in lb for lb in labels))
             variant = root.to_variant(-1)
             self.assertEqual(variant.get_type_string(), "(ia{sv}av)")
+            reply = GLib.Variant.new_tuple(GLib.Variant.new_uint32(1), variant)
+            self.assertEqual(reply.get_type_string(), "(u(ia{sv}av))")
 
     def test_ui_notifications_page_builds(self):
         import gi
