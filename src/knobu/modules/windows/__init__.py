@@ -30,7 +30,7 @@ class WindowModule(Module):
     id = "windows"
     name = "Window Manager"
     description = "Always on Top pinning, FancyZones grid snapping, and clean window maximize."
-    icon = "preferences-system-windows-symbolic"
+    icon = "focus-windows-symbolic"
     defaults = {
         "enabled": True,
         "always_on_top_hotkey": "super+ctrl+t",
