@@ -106,6 +106,7 @@ class MenuItem:
     item_type: str = ""  # "", "separator"
     toggle_type: str = ""  # "", "checkmark", "radio"
     toggle_state: int = 0
+    icon_name: str = ""
     action: object = None
     children: list["MenuItem"] = field(default_factory=list)
 
@@ -117,6 +118,7 @@ class MenuItem:
             self.item_type,
             self.toggle_type,
             self.toggle_state,
+            self.icon_name,
             tuple(c.signature() for c in self.children),
         )
 
@@ -128,6 +130,8 @@ class MenuItem:
             "enabled": GLib.Variant("b", self.enabled),
             "visible": GLib.Variant("b", True),
         }
+        if self.icon_name:
+            props["icon-name"] = GLib.Variant("s", self.icon_name)
         if self.toggle_type:
             props["toggle-type"] = GLib.Variant("s", self.toggle_type)
             props["toggle-state"] = GLib.Variant("i", self.toggle_state)
@@ -226,7 +230,7 @@ class StatusTray:
         except GLib.Error as err:
             log.debug("StatusNotifierWatcher registration skipped: %s", err)
 
-    def refresh_network_async(self, force_public: bool = False) -> None:
+    def refresh_network_async(self, force_public: bool = False, notify_user: bool = False) -> None:
         def worker():
             net = get_network_status()
             pub = self._public_ip
@@ -241,6 +245,13 @@ class StatusTray:
                 self._net = net
                 self._public_ip = pub
             GLib.idle_add(self._emit_layout_if_changed)
+            if notify_user:
+                vpn_part = f" · VPN: {net.vpn_ip}" if (net.vpn_active and net.vpn_ip) else ""
+                notify.notify(
+                    "Network Refreshed",
+                    f"Private: {net.private_ip} · Public: {pub}{vpn_part}",
+                    timeout_ms=3000,
+                )
         threading.Thread(target=worker, name="tray-net", daemon=True).start()
 
     def _emit_layout_if_changed(self) -> bool:
@@ -336,11 +347,11 @@ class StatusTray:
         by_id: dict[int, MenuItem] = {}
 
         def item(item_id: int, label: str = "", enabled: bool = True, item_type: str = "",
-                 toggle_type: str = "", toggle_state: int = 0, action=None,
+                 toggle_type: str = "", toggle_state: int = 0, icon_name: str = "", action=None,
                  children: list[MenuItem] | None = None) -> MenuItem:
             m = MenuItem(
                 id=item_id, label=label, enabled=enabled, item_type=item_type,
-                toggle_type=toggle_type, toggle_state=toggle_state, action=action,
+                toggle_type=toggle_type, toggle_state=toggle_state, icon_name=icon_name, action=action,
                 children=children or [],
             )
             by_id[item_id] = m
@@ -354,20 +365,20 @@ class StatusTray:
         net_label = f"Connection: {conn_prefix} ({net.connection_name})"
 
         ip_rows = [
-            item(4, f"📋 Copy Private IP: {net.private_ip}",
+            item(4, f"Copy Private IP: {net.private_ip}", icon_name="edit-copy-symbolic",
                  action=lambda: self._copy_with_toast("Private IP", net.private_ip)),
         ]
         if self.show_public_ip:
-            ip_rows.append(item(5, f"📋 Copy Public IP: {pub}",
+            ip_rows.append(item(5, f"Copy Public IP: {pub}", icon_name="edit-copy-symbolic",
                                 action=lambda: self._copy_with_toast("Public IP", pub)))
         if net.vpn_active and net.vpn_ip:
             vpn_title = f"VPN: {net.vpn_name}" + (f" ({net.vpn_device})" if net.vpn_device and net.vpn_device != net.vpn_name else "")
-            ip_rows.append(item(6, vpn_title, enabled=False))
-            ip_rows.append(item(7, f"📋 Copy VPN IP: {net.vpn_ip}",
+            ip_rows.append(item(6, vpn_title, enabled=False, icon_name="network-vpn-symbolic"))
+            ip_rows.append(item(7, f"Copy VPN IP: {net.vpn_ip}", icon_name="edit-copy-symbolic",
                                 action=lambda: self._copy_with_toast(f"VPN IP ({net.vpn_name})", net.vpn_ip)))
 
-        ip_rows.append(item(8, "🔄 Refresh All IP Addresses",
-                            action=lambda: self.refresh_network_async(force_public=True)))
+        ip_rows.append(item(8, "Refresh All IP Addresses", icon_name="view-refresh-symbolic",
+                            action=lambda: self.refresh_network_async(force_public=True, notify_user=True)))
 
         aws_children = []
         if aws_profiles:
@@ -496,8 +507,9 @@ class StatusTray:
             changed = False
             if item_id == 0:
                 changed = self._rebuild_if_changed()
-                if (time.monotonic() - self._last_ip_fetch) > 60:
-                    self.refresh_network_async(force_public=False)
+                # Auto-refresh on menu open so IPs are fresh without closing the tray
+                if (time.monotonic() - self._last_ip_fetch) > 10:
+                    self.refresh_network_async(force_public=True)
             invocation.return_value(GLib.Variant("(b)", (changed,)))
         elif method == "AboutToShowGroup":
             ids = params.unpack()[0]

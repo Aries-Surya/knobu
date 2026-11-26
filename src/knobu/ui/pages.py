@@ -1297,7 +1297,12 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         row = Adw.ActionRow(use_markup=False, title=title, subtitle=initial)
         state = {"val": initial}
 
-        copy_btn = Gtk.Button(label="Copy IP", valign=Gtk.Align.CENTER, css_classes=["pill"])
+        copy_btn = Gtk.Button(
+            icon_name="edit-copy-symbolic",
+            tooltip_text="Copy IP",
+            valign=Gtk.Align.CENTER,
+            css_classes=["flat"],
+        )
 
         def on_copy(_b):
             val = state["val"]
@@ -1329,9 +1334,10 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         subtitle="Re-query local interfaces, active VPN tunnel, and fetch live public IP",
     )
     refresh_all_btn = Gtk.Button(
-        label="Refresh All IPs",
+        icon_name="view-refresh-symbolic",
+        tooltip_text="Refresh all IPs",
         valign=Gtk.Align.CENTER,
-        css_classes=["pill", "suggested-action"],
+        css_classes=["flat"],
     )
 
     def on_refresh_all(_b):
