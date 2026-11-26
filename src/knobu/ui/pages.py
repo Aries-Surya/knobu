@@ -1300,7 +1300,7 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     priv_row.add_suffix(priv_btn)
     net_group.add(priv_row)
 
-    pub_row = Adw.ActionRow(use_markup=False, title="Public IP", subtitle="Click refresh to fetch & copy")
+    pub_row = Adw.ActionRow(use_markup=False, title="Public IP", subtitle="Click refresh to fetch and copy")
     pub_btn = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER,
                          css_classes=["flat", "circular"], tooltip_text="Refresh & Copy Public IP")
     def on_pub(_b):
