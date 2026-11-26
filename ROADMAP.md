@@ -114,15 +114,15 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 8: Everyday Power Tools & System Maintenance 🛠️
+## Milestone 8: Everyday Power Tools & System Maintenance 🛠️ ✅
 
 *Inspired by Vorssaint Cleaner, Port Manager & Media Tools*
 
-- [ ] **Port Manager**:
+- [X] **Port Manager**:
   - Inspect listening TCP/UDP ports (`ss -tulpn`) with 1-click process termination.
-- [ ] **Cleaning Mode**:
+- [X] **Cleaning Mode**:
   - Fullscreen lock overlay that disables all keyboard and mouse inputs to allow wiping hardware safely.
-- [ ] **Cleaner & Uninstaller**:
+- [X] **Cleaner & Uninstaller**:
   - Safe cleanup of user caches (`~/.cache`), crash dumps, and package manager residue (`apt clean`).
-- [ ] **Media Tools**:
+- [X] **Media Tools**:
   - Quick local video compression, GIF creation, and batch image format conversion via `ffmpeg`.

@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Power Tools & System Maintenance (`src/knobu/modules/powertools/`, `src/knobu/ui/cleaning.py`)**:
+  - **Port Manager**: Inspect active listening TCP/UDP ports via `ss -tulpn` with search filtering and 1-click process termination (plus `knobu ports` CLI).
+  - **Hardware Cleaning Mode (`Super+Alt+K` / `knobu cleaning-mode`)**: Fullscreen overlay that grabs physical keyboards, mice, and touchpads via `evdev` for safe wiping, featuring an auto-unlock countdown timer and 2-second `Esc` hold exit.
+  - **System Cleaner & Package Uninstaller**: Safe cleanup of user caches (`~/.cache`), thumbnail caches, crash dumps (`/var/crash`), and APT package archives (`apt-get clean`), plus searchable manual package uninstallation.
+  - **Media Tools (`ffmpeg`)**: Video compression (H.264/AAC MP4), palette-optimized Video-to-GIF conversion, and batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`).
+
+### Added
 - **Touchpad Gestures Upgrade (`src/knobu/modules/touchpad/`)**:
   - **Windows Precision Multi-Directional Swipes**: Independent actions for all 4 swipe directions across both 3-finger and 4-finger gestures (8 distinct directional swipe actions plus 3 and 4-finger taps).
   - Supported actions: Smooth Volume Slide, Discrete Volume Step Up/Down (+/-5%), Media Play/Pause, Next Track, Previous Track, Mute/Unmute, Overview/Task View (`Super`), Show Desktop (`Super+D`), Workspace Left/Right/Up/Down, Application Switch (`Alt+Tab`, `Alt+Shift+Tab`), and Knobu Command Bar (`Alt+Space`).

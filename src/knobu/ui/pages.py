@@ -4,11 +4,13 @@ Each builder takes (store, navigate) and returns a widget; `navigate(page_id)` o
 another page.
 """
 
+from pathlib import Path
 import shutil
 import subprocess
+import threading
 import time
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from knobu import modules, service
 from knobu.modules.awake import AwakeModule
@@ -22,6 +24,7 @@ from knobu.modules.commandbar import (
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
+from knobu.modules.powertools import PowerToolsModule
 from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
@@ -107,7 +110,7 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return keycaps(hotkey) if hotkey else text("Alt+Space")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
-    if module_id in (ClipboardModule.id, ColorPickerModule.id, TextExtractorModule.id):
+    if module_id in (ClipboardModule.id, PowerToolsModule.id, ColorPickerModule.id, TextExtractorModule.id):
         hotkey = store.get(module_id, "hotkey", "")
         return keycaps(hotkey) if hotkey else text("")
     return text("")
@@ -760,6 +763,265 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.powertools import (
+        IMAGE_FORMATS,
+        clean_target,
+        compress_video,
+        convert_images,
+        ffmpeg_available,
+        format_bytes,
+        kill_process,
+        list_installed_packages,
+        list_listening_ports,
+        scan_cleanup_targets,
+        uninstall_package,
+        video_to_gif,
+    )
+
+    mid = PowerToolsModule.id
+    notices = input_notice()
+    if not ffmpeg_available():
+        notices.append(notice(
+            "FFmpeg not found",
+            "Media Tools require ffmpeg. Install it in a terminal:",
+            "sudo apt install ffmpeg",
+        ))
+    page = ModulePage(store, PowerToolsModule, notices=notices)
+
+    def run_bg(work, on_done) -> None:
+        def worker():
+            res = work()
+            GLib.idle_add(lambda: on_done(res) and False)
+        threading.Thread(target=worker, daemon=True).start()
+
+    # 1. Cleaning Mode
+    clean_mode = Adw.PreferencesGroup(
+        title="Cleaning Mode",
+        description="Fullscreen hardware lock overlay so you can wipe your keyboard, touchpad, and screen safely.",
+    )
+    clean_mode.add(shortcut_row(store, mid, "hotkey", "Cleaning Mode Shortcut",
+                                "Global shortcut to trigger Cleaning Mode"))
+    clean_mode.add(spin_row(store, mid, "cleaning_duration", "Auto-Unlock Timer (seconds)",
+                            "Safety countdown before inputs automatically unlock", 10, 120, 5))
+    clean_mode.add(button_row("Hardware Lock", "Start Cleaning Mode",
+                              lambda: launch.knobu("cleaning-mode"),
+                              "Hold Esc for 2 seconds or wait for countdown to exit"))
+    page.add(clean_mode)
+
+    # 2. Port Manager
+    port_group = Adw.PreferencesGroup(
+        title="Port Manager",
+        description="Inspect active listening TCP/UDP ports and terminate stuck processes.",
+    )
+    port_refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic", css_classes=["flat"],
+                                  valign=Gtk.Align.CENTER, tooltip_text="Refresh listening ports")
+    port_group.set_header_suffix(port_refresh_btn)
+
+    port_filter = Adw.EntryRow(title="Filter by port or process")
+    port_group.add(port_filter)
+    port_rows: list[Gtk.Widget] = []
+
+    def refresh_ports(*_args) -> None:
+        q = port_filter.get_text().strip().lower()
+        for r in port_rows:
+            port_group.remove(r)
+        port_rows.clear()
+
+        entries = [
+            e for e in list_listening_ports()
+            if not q or q in str(e.port) or q in e.process.lower() or q in e.proto
+        ]
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No matching listening ports")
+            port_group.add(empty)
+            port_rows.append(empty)
+            return
+
+        for entry in entries[:40]:
+            pid_txt = f"PID {entry.pid}" if entry.pid else "system"
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=f"{entry.proto.upper()} :{entry.port} — {entry.process}",
+                subtitle=f"{entry.address} ({pid_txt})",
+            )
+            if entry.pid is not None:
+                kill_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER,
+                                      css_classes=["pill", "destructive-action"])
+                def on_kill(_b, pid=entry.pid, r=row):
+                    _b.set_sensitive(False)
+                    run_bg(lambda: kill_process(pid), lambda res: (r.set_subtitle(res[1]), refresh_ports()))
+                kill_btn.connect("clicked", on_kill)
+                row.add_suffix(kill_btn)
+            port_group.add(row)
+            port_rows.append(row)
+
+    port_refresh_btn.connect("clicked", refresh_ports)
+    port_filter.connect("changed", refresh_ports)
+    refresh_ports()
+    page.add(port_group)
+
+    # 3. Cleaner & Uninstaller
+    cleaner_group = Adw.PreferencesGroup(
+        title="System Cleaner",
+        description="Safely reclaim space from user caches, thumbnails, crash reports, and APT residue.",
+    )
+    cleaner_status = Adw.ActionRow(use_markup=False, title="Cleanup Status", subtitle="Ready")
+    target_rows: dict[str, Adw.ActionRow] = {}
+
+    def refresh_cleaner_sizes() -> None:
+        for t in scan_cleanup_targets():
+            row = target_rows.get(t.id)
+            if row is not None:
+                admin_note = " (admin)" if t.requires_admin else ""
+                row.set_subtitle(f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}")
+
+    for t in scan_cleanup_targets():
+        admin_note = " (admin)" if t.requires_admin else ""
+        t_row = Adw.ActionRow(
+            use_markup=False,
+            title=t.name,
+            subtitle=f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}",
+        )
+        c_btn = Gtk.Button(label="Clean", valign=Gtk.Align.CENTER, css_classes=["pill"])
+        def on_clean(btn, tid=t.id):
+            btn.set_sensitive(False)
+            cleaner_status.set_subtitle(f"Cleaning {tid}...")
+            def done(res):
+                _ok, msg, _freed = res
+                cleaner_status.set_subtitle(msg)
+                refresh_cleaner_sizes()
+                btn.set_sensitive(True)
+            run_bg(lambda: clean_target(tid), done)
+        c_btn.connect("clicked", on_clean)
+        t_row.add_suffix(c_btn)
+        target_rows[t.id] = t_row
+        cleaner_group.add(t_row)
+
+    cleaner_group.add(cleaner_status)
+    page.add(cleaner_group)
+
+    pkg_group = Adw.PreferencesGroup(
+        title="Package Uninstaller",
+        description="Search manually installed APT packages and remove unused software.",
+    )
+    pkg_search = Adw.EntryRow(title="Search installed packages")
+    pkg_group.add(pkg_search)
+    pkg_rows: list[Gtk.Widget] = []
+
+    def refresh_packages(*_args) -> None:
+        q = pkg_search.get_text()
+        for r in pkg_rows:
+            pkg_group.remove(r)
+        pkg_rows.clear()
+        pkgs = list_installed_packages(q, limit=12)
+        if not pkgs:
+            empty = Adw.ActionRow(use_markup=False, title="No matching packages found")
+            pkg_group.add(empty)
+            pkg_rows.append(empty)
+            return
+        for pkg in pkgs:
+            size_mb = pkg.size_kb / 1024
+            p_row = Adw.ActionRow(
+                use_markup=False,
+                title=f"{pkg.name} ({size_mb:.1f} MB)",
+                subtitle=pkg.summary,
+            )
+            rm_btn = Gtk.Button(label="Uninstall", valign=Gtk.Align.CENTER,
+                                css_classes=["pill", "destructive-action"])
+            def on_remove(btn, name=pkg.name, r=p_row):
+                btn.set_sensitive(False)
+                r.set_subtitle(f"Uninstalling {name}...")
+                run_bg(lambda: uninstall_package(name), lambda res: (r.set_subtitle(res[1]), refresh_packages()))
+            rm_btn.connect("clicked", on_remove)
+            p_row.add_suffix(rm_btn)
+            pkg_group.add(p_row)
+            pkg_rows.append(p_row)
+
+    pkg_search.connect("entry-activated", refresh_packages)
+    pkg_search_btn = Gtk.Button(icon_name="system-search-symbolic", css_classes=["flat"],
+                                valign=Gtk.Align.CENTER, tooltip_text="Search packages")
+    pkg_search_btn.connect("clicked", refresh_packages)
+    pkg_group.set_header_suffix(pkg_search_btn)
+    refresh_packages()
+    page.add(pkg_group)
+
+    # 4. Media Tools (FFmpeg)
+    media_group = Adw.PreferencesGroup(
+        title="Media Tools",
+        description="Local video compression, GIF creation, and batch image conversion via FFmpeg.",
+    )
+    media_status = Adw.ActionRow(use_markup=False, title="Task Output", subtitle="Select files below to process")
+
+    crf_presets = [(24, "Balanced (CRF 24)"), (20, "High Quality (CRF 20)"), (28, "Small File (CRF 28)")]
+    crf_row = Adw.ComboRow(use_markup=False, title="Video Compression Quality",
+                           model=Gtk.StringList.new([lbl for _, lbl in crf_presets]))
+    media_group.add(crf_row)
+
+    def pick_single(title: str, on_file) -> None:
+        dlg = Gtk.FileDialog(title=title)
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.open_finish(res)
+                if f and f.get_path():
+                    on_file(Path(f.get_path()))
+            except GLib.Error:
+                pass
+        dlg.open(parent if isinstance(parent, Gtk.Window) else None, None, cb)
+
+    def pick_multiple(title: str, on_files) -> None:
+        dlg = Gtk.FileDialog(title=title)
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                model = d.open_multiple_finish(res)
+                paths = [Path(model.get_item(i).get_path()) for i in range(model.get_n_items()) if model.get_item(i).get_path()]
+                if paths:
+                    on_files(paths)
+            except GLib.Error:
+                pass
+        dlg.open_multiple(parent if isinstance(parent, Gtk.Window) else None, None, cb)
+
+    def on_compress_video() -> None:
+        crf = crf_presets[crf_row.get_selected()][0]
+        def start(path: Path):
+            media_status.set_subtitle(f"Compressing {path.name}...")
+            run_bg(lambda: compress_video(path, crf=crf),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_single("Select Video to Compress", start)
+
+    def on_make_gif() -> None:
+        def start(path: Path):
+            media_status.set_subtitle(f"Creating GIF from {path.name}...")
+            run_bg(lambda: video_to_gif(path),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_single("Select Video for GIF", start)
+
+    fmt_row = Adw.ComboRow(use_markup=False, title="Target Image Format",
+                           model=Gtk.StringList.new([f.upper() for f in IMAGE_FORMATS]))
+
+    def on_convert_images() -> None:
+        fmt = IMAGE_FORMATS[fmt_row.get_selected()]
+        def start(paths: list[Path]):
+            media_status.set_subtitle(f"Converting {len(paths)} image(s) to {fmt.upper()}...")
+            run_bg(lambda: convert_images(paths, fmt),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_multiple("Select Images to Convert", start)
+
+    media_group.add(button_row("Compress Video", "Choose Video", on_compress_video,
+                               "Re-encodes to fast-start H.264/AAC MP4 beside source file"))
+    media_group.add(button_row("Video to GIF", "Choose Video", on_make_gif,
+                               "Two-pass Lanczos palette GIF beside source file"))
+    media_group.add(fmt_row)
+    media_group.add(button_row("Batch Convert Images", "Choose Images", on_convert_images,
+                               "Convert multiple PNG/JPG/WebP/AVIF files at once"))
+    media_group.add(media_status)
+    page.add(media_group)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
@@ -769,6 +1031,7 @@ PAGES = [
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
+    (PowerToolsModule.id, PowerToolsModule.name, PowerToolsModule.icon, powertools_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),
     (TextExtractorModule.id, TextExtractorModule.name, TextExtractorModule.icon,

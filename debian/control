@@ -25,7 +25,7 @@ Depends: ${python3:Depends},
          wireplumber | pulseaudio-utils,
          systemd,
 Recommends: tesseract-ocr,
-Suggests: spectacle,
+Suggests: spectacle, ffmpeg,
 Description: PowerToys-style utilities for Ubuntu
  Knobu adds small power tools to the desktop, each one a module that can be
  switched on or off in the Knobu settings app:

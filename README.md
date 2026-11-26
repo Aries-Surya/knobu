@@ -42,6 +42,7 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
 | ☕ **Awake** | Keep the computer awake for a while, without touching power settings |
+| 🛠️ **Power Tools** | Port Manager (`ss -tulpn`), Hardware Cleaning Mode (`Super+Alt+K`), System Cleaner & Uninstaller, and FFmpeg Media Tools |
 | 🎨 **Color Picker** | Super+Shift+C, click any pixel, and its HEX/RGB/HSL is copied |
 | 📝 **Text Extractor** | Super+Shift+T, drag over any text on screen, and it's copied (OCR) |
 
@@ -132,6 +133,15 @@ Configure mouse behavior independently of touchpad desktop settings:
 - **Independent Wheel Inversion**: Reverse mouse wheel direction without altering the touchpad scrolling direction.
 - **Smooth Scrolling & Speed Multiplier**: Adjust wheel scroll speed multiplier (0.25x to 5.0x).
 - **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches.
+
+### Power Tools & System Maintenance
+
+Everyday developer and maintenance utilities built into Knobu:
+
+- **Port Manager**: Inspect listening TCP/UDP ports (`ss -tulpn`), filter by port or process name, and terminate stuck processes in one click.
+- **Hardware Cleaning Mode (`Super+Alt+K`)**: Fullscreen dark overlay that exclusively locks keyboards, mice, and touchpads via `evdev` so you can wipe hardware safely; hold `Esc` for 2 seconds or wait for the countdown timer to unlock.
+- **System Cleaner & Uninstaller**: Measure and clean `~/.cache`, thumbnail previews, crash dumps, and APT cache (`apt-get clean`), plus search and remove manually installed APT packages.
+- **Media Tools (`ffmpeg`)**: Local H.264/AAC MP4 compression, two-pass Lanczos GIF conversion, and batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`).
 
 ### Awake
 
@@ -277,6 +287,8 @@ python3 -m venv --system-site-packages .venv
 | `knobu extract-text` | Copy text from an area of the screen |
 | `knobu command-bar` (or `run`) | Open the floating Command Bar launcher |
 | `knobu clipboard` | Open the Clipboard History palette |
+| `knobu cleaning-mode` | Lock keyboard, mouse, and touchpad inputs for safe hardware cleaning |
+| `knobu ports` | Print listening TCP/UDP ports and PIDs in the terminal |
 | `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
 | `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |
 | `knobu daemon` | Run the background service in the terminal (useful for debugging) |

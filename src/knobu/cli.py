@@ -77,6 +77,8 @@ def main() -> None:
     sub.add_parser("paste-plain", help="paste current clipboard content as plain text")
     sub.add_parser("command-bar", help="open the Command Bar quick launcher")
     sub.add_parser("run", help="alias for command-bar")
+    sub.add_parser("cleaning-mode", help="lock keyboard, mouse, and touchpad inputs for cleaning")
+    sub.add_parser("ports", help="list listening TCP/UDP ports")
     p_bp = sub.add_parser("bypass", help="temporarily bypass all hardware grabs and customizations (e.g. for gaming)")
     p_bp.add_argument("state", nargs="?", default="status", choices=["on", "off", "toggle", "status"],
                       help="on | off | toggle | status (default: status)")
@@ -124,6 +126,14 @@ def main() -> None:
     elif args.command in ("command-bar", "run"):
         from knobu.ui.commandbar import main as commandbar_main
         sys.exit(commandbar_main())
+    elif args.command == "cleaning-mode":
+        from knobu.ui.cleaning import main as cleaning_main
+        sys.exit(cleaning_main())
+    elif args.command == "ports":
+        from knobu.modules.powertools import list_listening_ports
+        for p in list_listening_ports():
+            pid_s = str(p.pid) if p.pid is not None else "-"
+            print(f"{p.proto:<4} {p.port:<6} {p.address:<24} {p.process} (pid={pid_s})")
     elif args.command == "bypass":
         bypass_command(args.state.lower())
     elif args.command == "restore-os-shortcuts":
