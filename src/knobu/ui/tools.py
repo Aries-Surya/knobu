@@ -1,8 +1,12 @@
 """Shared pieces for Knobu's small tool windows (Color Picker, Text Extractor)."""
 
+import gi
+gi.require_version("Adw", "1")
+gi.require_version("Gdk", "4.0")
+gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GObject, Gtk
 
-from knobu import APP_ID, config, modules
+from knobu import APP_ID, config
 
 
 class ToolApp(Adw.Application):
@@ -15,6 +19,7 @@ class ToolApp(Adw.Application):
                          flags=Gio.ApplicationFlags.NON_UNIQUE)
 
     def settings(self, module_id: str) -> dict:
+        from knobu import modules
         return config.module_settings(config.load(), module_id, modules.get(module_id).defaults)
 
 

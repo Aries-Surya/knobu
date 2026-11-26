@@ -27,21 +27,33 @@ class Daemon:
         from knobu.system import hotkeys
         hotkeys.service().set_bypass(bypass_all)
         if bypass_all:
-            log.info("Bypass Mode is ACTIVE: all hardware grabs and customizations suspended")
-            return
+            log.info("Bypass Mode is ACTIVE: hardware grabs suspended (tray remains active)")
 
+        existing = {m.id: m for m in self.running}
         for cls in MODULES:
+            if bypass_all and cls.id != "notifications":
+                continue
             settings = config.module_settings(data, cls.id, cls.defaults)
             if settings["enabled"]:
+                if cls.id in existing:
+                    existing[cls.id].update_settings(settings)
+                    continue
                 module = cls(settings)
                 module.start()
                 self.running.append(module)
         log.info("running modules: %s", ", ".join(m.id for m in self.running) or "none")
 
-    def stop_modules(self) -> None:
+    def stop_modules(self, reloading: bool = False) -> None:
+        kept: list[Module] = []
+        data = config.load() if reloading else {}
         for module in self.running:
+            if reloading and module.id == "notifications":
+                s = config.module_settings(data, module.id, module.defaults)
+                if s["enabled"]:
+                    kept.append(module)
+                    continue
             module.stop()
-        self.running.clear()
+        self.running = kept
         from knobu.system import hotkeys
         hotkeys.service().set_keyboard_processor(None)
 
@@ -57,7 +69,7 @@ class Daemon:
             if self._reload and not self._quit:
                 self._reload = False
                 log.info("reloading config")
-                self.stop_modules()
+                self.stop_modules(reloading=True)
                 self.start_modules()
         self.stop_modules()
         log.info("stopped")

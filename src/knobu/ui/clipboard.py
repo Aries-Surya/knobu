@@ -20,6 +20,7 @@ from knobu.modules.clipboard import (
     set_clipboard_image,
     simulate_paste,
 )
+from knobu.modules.clipboard.transforms import TRANSFORMS, transform_text
 from knobu.ui import style
 from knobu.ui.tools import ToolApp
 from knobu.ui.widgets import app_icon
@@ -231,6 +232,24 @@ class ClipboardWindow(Gtk.Window):
             col.add_controller(click)
             card.append(col)
 
+            # Advanced Paste transforms button for text clips
+            if clip.kind != "image":
+                pop_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2,
+                                  margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+                pop = Gtk.Popover(child=pop_box)
+                for mode_id, mode_label in TRANSFORMS:
+                    t_btn = Gtk.Button(label=mode_label, css_classes=["flat"])
+                    t_btn.connect("clicked", lambda _b, c=clip, m=mode_id, p=pop: self._paste_transformed(c, m, p))
+                    pop_box.append(t_btn)
+                adv_btn = Gtk.MenuButton(
+                    icon_name="applications-engineering-symbolic",
+                    tooltip_text="Advanced Paste (Transform & Paste)",
+                    popover=pop,
+                    css_classes=["knobu-clip-btn", "flat"],
+                    valign=Gtk.Align.CENTER,
+                )
+                card.append(adv_btn)
+
             # Pin button
             pin_btn = Gtk.Button(
                 icon_name="view-pin-symbolic",
@@ -261,6 +280,17 @@ class ClipboardWindow(Gtk.Window):
             set_clipboard_image(clip.content)
         else:
             set_clipboard(clip.content)
+        threading.Thread(target=simulate_paste, daemon=True).start()
+
+    def _paste_transformed(self, clip, mode: str, pop: Gtk.Popover) -> None:
+        pop.popdown()
+        ok, out = transform_text(clip.content, mode)
+        if not ok:
+            self.search.set_placeholder_text(out)
+            return
+        self._activated = False
+        self.close()
+        set_clipboard(out)
         threading.Thread(target=simulate_paste, daemon=True).start()
 
     def _on_toggle_pin(self, clip_id: int) -> None:

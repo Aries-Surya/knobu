@@ -5,6 +5,24 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] (2026-11-26)
+
+### Features
+
+* **sound:** implement Per-App Volume Mixer, up to 150% volume boost, Super+Shift+A global mic mute, and Super+Shift+O output device switcher
+* **windows:** implement Always on Top (`Super+Ctrl+T`), FancyZones grid layouts (`2col`, `3col`, `2x2`, `priority`, `left_main`), layout overlay (`knobu fancyzones`), and keyboard zone snapping
+* **sysmon:** real-time hardware resource monitoring (CPU, RAM, network, thermal, battery) and high-load/low-battery health alerts
+* **devops:** dedicated DevOps on Cloud category with local Cron Jobs manager, CIDR subnet calculator, DNS lookup, SSL certificate inspector, active AWS Caller Identity readout, and Docker containers status
+* **automation:** rule-based automation engine ("When [Trigger] -> If [Condition] -> Then [Action]") with Wi-Fi/battery/schedule triggers and execution history logging
+* **powertoys:** extended PowerToys suite with ZoomIt screen annotation overlay, interactive Shortcut Guide (`Super+Shift+?`), Quick Accent picker, Workspaces Launcher, Light Switch auto-theme, and Advanced Paste transforms in Clipboard History
+* **config:** add JSON configuration backup and restore via CLI (`knobu backup` / `knobu restore`) and Settings UI
+
+### Bug Fixes
+
+* **ci:** handle headless test environments gracefully in UI page tests when no display server is available
+* **tray:** replace emojis with standard symbolic icons and add auto-refresh on menu opening
+* **windows:** replace missing `focus-windows` icon with valid standard `focus-windows-symbolic` icon
+
 ## [0.4.0](https://github.com/Aries-Surya/knobu/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 
@@ -69,6 +87,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **ci:** document complete CI/CD release workflow and add archify diagram ([d20b828](https://github.com/Aries-Surya/knobu/commit/d20b828ec186a00c33df4bcaf7a24f46fc1a0813))
 
 ## [Unreleased]
+
+### Added
+- **Top Bar Status Tray, IP/AWS Readout & Mac-Style Notifications (`src/knobu/system/tray.py`, `src/knobu/modules/notifications/`, `src/knobu/ui/hud.py`)**:
+  - Native `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` tray icon compatible with Ubuntu GNOME AppIndicator and KDE Plasma 6.
+  - Live tray dropdown displaying current Wi-Fi/Ethernet/VPN connection, **Private IP**, **Public IP** (1-click copy + refresh), **Active AWS CLI profile** quick-switcher, Master Bypass toggle, Awake presets, Do Not Disturb, and Quick Tool launchers.
+  - Passive D-Bus `BecomeMonitor` listener capturing desktop notifications into a Mac-style Notification Center drawer (`knobu notifications`) and optional floating Dynamic Island HUD capsule.
+- **Power Tools & System Maintenance (`src/knobu/modules/powertools/`, `src/knobu/ui/cleaning.py`)**:
+  - **Port Manager**: Inspect active listening TCP/UDP ports via `ss -tulpn` with search filtering and 1-click process termination (plus `knobu ports` CLI).
+  - **Hardware Cleaning Mode (`Super+Alt+K` / `knobu cleaning-mode`)**: Fullscreen overlay that grabs physical keyboards, mice, and touchpads via `evdev` for safe wiping, featuring an auto-unlock countdown timer and 2-second `Esc` hold exit.
+  - **System Cleaner & Package Uninstaller**: Safe cleanup of user caches (`~/.cache`), thumbnail caches, crash dumps (`/var/crash`), and APT package archives (`apt-get clean`), plus searchable multi-source package uninstallation across APT, Snap, Flatpak, Brew, Pipx, NPM, and Cargo.
+  - **Media Tools (`ffmpeg`)**: Video compression (H.264/AAC MP4), palette-optimized Video-to-GIF conversion, batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`), and batch image resize presets.
+  - **Environment Variables Manager**: Manage `~/.config/environment.d/90-knobu.conf` with live `systemctl --user set-environment` sync, enable/disable toggles, and read-only session inspector.
+  - **Hosts File Editor**: Visual `/etc/hosts` rule manager with IP/domain validation, enable/disable toggles, automatic backup, and `pkexec` save.
+  - **Screen Ruler & File Locksmith**: On-screen pixel measurement tool (`Super+Shift+M` / `knobu screen-ruler`) with clipboard copy, and `/proc/*/fd` open-handle inspector with 1-click process termination.
+  - **Mouse Pointer Locator (`Super+Alt+F` / Shake)**: Find My Mouse spotlight overlay (`knobu find-mouse`) with rapid mouse-shake detection and GNOME `locate-pointer` sync.
 
 ### Added
 - **Touchpad Gestures Upgrade (`src/knobu/modules/touchpad/`)**:

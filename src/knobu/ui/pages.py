@@ -4,13 +4,27 @@ Each builder takes (store, navigate) and returns a widget; `navigate(page_id)` o
 another page.
 """
 
+from pathlib import Path
 import shutil
 import subprocess
+import threading
 import time
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from knobu import modules, service
+from knobu.modules.automation import (
+    ACTION_TYPES,
+    CONDITION_TYPES,
+    TRIGGER_TYPES,
+    AutomationAction,
+    AutomationModule,
+    AutomationRule,
+    load_history,
+    load_rules,
+    run_rule_now,
+    save_rules,
+)
 from knobu.modules.awake import AwakeModule
 from knobu.modules.clipboard import ClipboardModule
 from knobu.modules.commandbar import (
@@ -22,7 +36,21 @@ from knobu.modules.commandbar import (
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
+from knobu.modules.notifications import NotificationsModule
+from knobu.modules.powertools import PowerToolsModule
+from knobu.modules.sound import (
+    SoundSuiteModule,
+    cycle_output_sink,
+    get_mic_status,
+    list_audio_state,
+    set_default_sink,
+    set_stream_volume,
+    toggle_mic_mute,
+    toggle_stream_mute,
+)
+from knobu.modules.sysmon import SystemMonitorModule, collect_metrics
 from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
+from knobu.modules.windows import ZONE_PRESETS, WindowModule, maximize_active_window, toggle_always_on_top
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
@@ -107,7 +135,9 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return keycaps(hotkey) if hotkey else text("Alt+Space")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
-    if module_id in (ClipboardModule.id, ColorPickerModule.id, TextExtractorModule.id):
+    if module_id == NotificationsModule.id:
+        return text("Top tray IP and AWS status · Mac-style notifications")
+    if module_id in (ClipboardModule.id, PowerToolsModule.id, ColorPickerModule.id, TextExtractorModule.id):
         hotkey = store.get(module_id, "hotkey", "")
         return keycaps(hotkey) if hotkey else text("")
     return text("")
@@ -465,6 +495,21 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                            "Clicks released and re-pressed faster than this window are suppressed", 10, 150, 5))
     page.add(deb_group)
 
+    # 3. Pointer Locator (Find My Mouse)
+    ptr_group = Adw.PreferencesGroup(
+        title="Pointer Locator (Find My Mouse)",
+        description="Locate your cursor instantly with GNOME Ctrl ring or a fullscreen spotlight.",
+    )
+    ptr_group.add(switch_row(store, mid, "find_my_mouse", "Enable Find My Mouse",
+                             "Syncs GNOME Ctrl cursor-locator ring and enables mouse-shake spotlight"))
+    ptr_group.add(switch_row(store, mid, "mouse_shake_trigger", "Trigger Spotlight on Shake",
+                             "Rapidly shake the mouse side-to-side to launch Find My Mouse spotlight"))
+    ptr_group.add(shortcut_row(store, mid, "find_my_mouse_hotkey", "Spotlight Shortcut",
+                               "Global shortcut to summon Find My Mouse spotlight"))
+    ptr_group.add(button_row("Try it now", "Spotlight Cursor", lambda: launch.knobu("find-mouse"),
+                             "Opens the spotlight overlay around your pointer"))
+    page.add(ptr_group)
+
     return page
 
 
@@ -624,6 +669,65 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     bypass_group.add(restore_row)
     page.add(bypass_group)
 
+    backup_group = Adw.PreferencesGroup(
+        title="Configuration Backup & Restore",
+        description="Export all module settings, shortcuts, and customizations to JSON or restore from a backup.",
+    )
+    backup_status = Adw.ActionRow(
+        use_markup=False,
+        title="Backup & Restore",
+        subtitle="Saved to ~/.config/knobu/knobu-backup.json or custom file",
+    )
+
+    backup_btn = Gtk.Button(
+        icon_name="document-save-symbolic",
+        tooltip_text="Export Backup (JSON)",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+    restore_btn = Gtk.Button(
+        icon_name="document-open-symbolic",
+        tooltip_text="Restore from JSON Backup",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+
+    def on_export_backup(_b):
+        dlg = Gtk.FileDialog(title="Save Configuration Backup", initial_name="knobu-backup.json")
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.save_finish(res)
+                if f:
+                    out = config.export_json(Path(f.get_path()))
+                    backup_status.set_subtitle(f"Exported to {out.name}")
+            except Exception as err:
+                backup_status.set_subtitle(f"Export failed: {err}")
+        dlg.save(parent, None, cb)
+
+    def on_import_backup(_b):
+        dlg = Gtk.FileDialog(title="Select JSON Backup to Restore")
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.open_finish(res)
+                if f:
+                    src = Path(f.get_path())
+                    new_data = config.import_json(src)
+                    store.data = new_data
+                    service.reload()
+                    backup_status.set_subtitle(f"Successfully restored from {src.name}")
+            except Exception as err:
+                backup_status.set_subtitle(f"Restore failed: {err}")
+        dlg.open(parent, None, cb)
+
+    backup_btn.connect("clicked", on_export_backup)
+    restore_btn.connect("clicked", on_import_backup)
+    backup_status.add_suffix(backup_btn)
+    backup_status.add_suffix(restore_btn)
+    backup_group.add(backup_status)
+    page.add(backup_group)
+
     about = Adw.PreferencesGroup(title="About")
     about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),
                          "Version, credits and license"))
@@ -760,15 +864,1263 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.powertools import (
+        IMAGE_FORMATS,
+        IMAGE_RESIZE_PRESETS,
+        EnvEntry,
+        HostEntry,
+        available_package_sources,
+        clean_target,
+        compress_video,
+        convert_images,
+        ffmpeg_available,
+        find_file_locks,
+        format_bytes,
+        is_valid_key,
+        kill_process,
+        list_installed_packages,
+        list_listening_ports,
+        load_hosts,
+        load_profiles,
+        resize_images,
+        save_hosts,
+        save_profiles,
+        scan_cleanup_targets,
+        system_env_snapshot,
+        uninstall_package,
+        validate_host_entry,
+        video_to_gif,
+    )
+
+    mid = PowerToolsModule.id
+    notices = input_notice()
+    if not ffmpeg_available():
+        notices.append(notice(
+            "FFmpeg not found",
+            "Media Tools require ffmpeg. Install it in a terminal:",
+            "sudo apt install ffmpeg",
+        ))
+    page = ModulePage(store, PowerToolsModule, notices=notices)
+
+    def run_bg(work, on_done) -> None:
+        def worker():
+            res = work()
+            GLib.idle_add(lambda: on_done(res) and False)
+        threading.Thread(target=worker, daemon=True).start()
+
+    # 1. Cleaning Mode
+    clean_mode = Adw.PreferencesGroup(
+        title="Cleaning Mode",
+        description="Fullscreen hardware lock overlay so you can wipe your keyboard, touchpad, and screen safely.",
+    )
+    clean_mode.add(shortcut_row(store, mid, "hotkey", "Cleaning Mode Shortcut",
+                                "Global shortcut to trigger Cleaning Mode"))
+    clean_mode.add(spin_row(store, mid, "cleaning_duration", "Auto-Unlock Timer (seconds)",
+                            "Safety countdown before inputs automatically unlock", 10, 120, 5))
+    clean_mode.add(button_row("Hardware Lock", "Start Cleaning Mode",
+                              lambda: launch.knobu("cleaning-mode"),
+                              "Hold Esc for 2 seconds or wait for countdown to exit"))
+    clean_mode.add(shortcut_row(store, mid, "ruler_hotkey", "Screen Ruler Shortcut",
+                                "Global shortcut to measure pixel widths, heights, and diagonals"))
+    clean_mode.add(button_row("Screen Ruler", "Measure Screen",
+                              lambda: launch.knobu("screen-ruler"),
+                              "Drag anywhere on screen to measure and copy pixel dimensions"))
+    page.add(clean_mode)
+
+    # 2. Port Manager
+    port_group = Adw.PreferencesGroup(
+        title="Port Manager",
+        description="Inspect active listening TCP/UDP ports and terminate stuck processes.",
+    )
+    port_refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic", css_classes=["flat"],
+                                  valign=Gtk.Align.CENTER, tooltip_text="Refresh listening ports")
+    port_group.set_header_suffix(port_refresh_btn)
+
+    port_filter = Adw.EntryRow(title="Filter by port or process")
+    port_group.add(port_filter)
+    port_rows: list[Gtk.Widget] = []
+
+    def refresh_ports(*_args) -> None:
+        q = port_filter.get_text().strip().lower()
+        for r in port_rows:
+            port_group.remove(r)
+        port_rows.clear()
+
+        entries = [
+            e for e in list_listening_ports()
+            if not q or q in str(e.port) or q in e.process.lower() or q in e.proto
+        ]
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No matching listening ports")
+            port_group.add(empty)
+            port_rows.append(empty)
+            return
+
+        for entry in entries[:40]:
+            pid_txt = f"PID {entry.pid}" if entry.pid else "system"
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=f"{entry.proto.upper()} :{entry.port} — {entry.process}",
+                subtitle=f"{entry.address} ({pid_txt})",
+            )
+            if entry.pid is not None:
+                kill_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER,
+                                      css_classes=["pill", "destructive-action"])
+                def on_kill(_b, pid=entry.pid, r=row):
+                    _b.set_sensitive(False)
+                    run_bg(lambda: kill_process(pid), lambda res: (r.set_subtitle(res[1]), refresh_ports()))
+                kill_btn.connect("clicked", on_kill)
+                row.add_suffix(kill_btn)
+            port_group.add(row)
+            port_rows.append(row)
+
+    port_refresh_btn.connect("clicked", refresh_ports)
+    port_filter.connect("changed", refresh_ports)
+    refresh_ports()
+    page.add(port_group)
+
+    # 3. Cleaner & Uninstaller
+    cleaner_group = Adw.PreferencesGroup(
+        title="System Cleaner",
+        description="Safely reclaim space from user caches, thumbnails, crash reports, and APT residue.",
+    )
+    cleaner_status = Adw.ActionRow(use_markup=False, title="Cleanup Status", subtitle="Ready")
+    target_rows: dict[str, Adw.ActionRow] = {}
+
+    def refresh_cleaner_sizes() -> None:
+        for t in scan_cleanup_targets():
+            row = target_rows.get(t.id)
+            if row is not None:
+                admin_note = " (admin)" if t.requires_admin else ""
+                row.set_subtitle(f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}")
+
+    for t in scan_cleanup_targets():
+        admin_note = " (admin)" if t.requires_admin else ""
+        t_row = Adw.ActionRow(
+            use_markup=False,
+            title=t.name,
+            subtitle=f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}",
+        )
+        c_btn = Gtk.Button(label="Clean", valign=Gtk.Align.CENTER, css_classes=["pill"])
+        def on_clean(btn, tid=t.id):
+            btn.set_sensitive(False)
+            cleaner_status.set_subtitle(f"Cleaning {tid}...")
+            def done(res):
+                _ok, msg, _freed = res
+                cleaner_status.set_subtitle(msg)
+                refresh_cleaner_sizes()
+                btn.set_sensitive(True)
+            run_bg(lambda: clean_target(tid), done)
+        c_btn.connect("clicked", on_clean)
+        t_row.add_suffix(c_btn)
+        target_rows[t.id] = t_row
+        cleaner_group.add(t_row)
+
+    cleaner_group.add(cleaner_status)
+    page.add(cleaner_group)
+
+    sources = available_package_sources()
+    pkg_group = Adw.PreferencesGroup(
+        title="Package Uninstaller",
+        description=f"Detected sources: {', '.join(s.upper() for s in sources) or 'none'}",
+    )
+    src_choices = [("all", "All Sources")] + [(s, s.upper()) for s in sources]
+    src_row = Adw.ComboRow(use_markup=False, title="Package Source",
+                           model=Gtk.StringList.new([lbl for _, lbl in src_choices]))
+    pkg_group.add(src_row)
+    pkg_search = Adw.EntryRow(title="Search installed packages")
+    pkg_group.add(pkg_search)
+    pkg_rows: list[Gtk.Widget] = []
+
+    def refresh_packages(*_args) -> None:
+        q = pkg_search.get_text()
+        sel_src = src_choices[src_row.get_selected()][0]
+        for r in pkg_rows:
+            pkg_group.remove(r)
+        pkg_rows.clear()
+        pkgs = list_installed_packages(q, source=sel_src, limit=20)
+        if not pkgs:
+            empty = Adw.ActionRow(use_markup=False, title="No matching packages found")
+            pkg_group.add(empty)
+            pkg_rows.append(empty)
+            return
+        for pkg in pkgs:
+            meta = f"{pkg.size_kb / 1024:.1f} MB" if pkg.size_kb else (pkg.version or pkg.source)
+            p_row = Adw.ActionRow(
+                use_markup=False,
+                title=f"[{pkg.source.upper()}] {pkg.name} ({meta})",
+                subtitle=pkg.summary or f"Installed via {pkg.source}",
+            )
+            rm_btn = Gtk.Button(label="Uninstall", valign=Gtk.Align.CENTER,
+                                css_classes=["pill", "destructive-action"])
+            def on_remove(btn, name=pkg.name, src=pkg.source, r=p_row):
+                btn.set_sensitive(False)
+                r.set_subtitle(f"Uninstalling {name} ({src})...")
+                run_bg(lambda: uninstall_package(name, src), lambda res: (r.set_subtitle(res[1]), refresh_packages()))
+            rm_btn.connect("clicked", on_remove)
+            p_row.add_suffix(rm_btn)
+            pkg_group.add(p_row)
+            pkg_rows.append(p_row)
+
+    src_row.connect("notify::selected", refresh_packages)
+    pkg_search.connect("entry-activated", refresh_packages)
+    pkg_search_btn = Gtk.Button(icon_name="system-search-symbolic", css_classes=["flat"],
+                                valign=Gtk.Align.CENTER, tooltip_text="Search packages")
+    pkg_search_btn.connect("clicked", refresh_packages)
+    pkg_group.set_header_suffix(pkg_search_btn)
+    refresh_packages()
+    page.add(pkg_group)
+
+    # 4. Media Tools (FFmpeg)
+    media_group = Adw.PreferencesGroup(
+        title="Media Tools",
+        description="Local video compression, GIF creation, and batch image conversion via FFmpeg.",
+    )
+    media_status = Adw.ActionRow(use_markup=False, title="Task Output", subtitle="Select files below to process")
+
+    crf_presets = [(24, "Balanced (CRF 24)"), (20, "High Quality (CRF 20)"), (28, "Small File (CRF 28)")]
+    crf_row = Adw.ComboRow(use_markup=False, title="Video Compression Quality",
+                           model=Gtk.StringList.new([lbl for _, lbl in crf_presets]))
+    media_group.add(crf_row)
+
+    def pick_single(title: str, on_file) -> None:
+        dlg = Gtk.FileDialog(title=title)
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.open_finish(res)
+                if f and f.get_path():
+                    on_file(Path(f.get_path()))
+            except GLib.Error:
+                pass
+        dlg.open(parent if isinstance(parent, Gtk.Window) else None, None, cb)
+
+    def pick_multiple(title: str, on_files) -> None:
+        dlg = Gtk.FileDialog(title=title)
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                model = d.open_multiple_finish(res)
+                paths = [Path(model.get_item(i).get_path()) for i in range(model.get_n_items()) if model.get_item(i).get_path()]
+                if paths:
+                    on_files(paths)
+            except GLib.Error:
+                pass
+        dlg.open_multiple(parent if isinstance(parent, Gtk.Window) else None, None, cb)
+
+    def on_compress_video() -> None:
+        crf = crf_presets[crf_row.get_selected()][0]
+        def start(path: Path):
+            media_status.set_subtitle(f"Compressing {path.name}...")
+            run_bg(lambda: compress_video(path, crf=crf),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_single("Select Video to Compress", start)
+
+    def on_make_gif() -> None:
+        def start(path: Path):
+            media_status.set_subtitle(f"Creating GIF from {path.name}...")
+            run_bg(lambda: video_to_gif(path),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_single("Select Video for GIF", start)
+
+    fmt_row = Adw.ComboRow(use_markup=False, title="Target Image Format",
+                           model=Gtk.StringList.new([f.upper() for f in IMAGE_FORMATS]))
+
+    def on_convert_images() -> None:
+        fmt = IMAGE_FORMATS[fmt_row.get_selected()]
+        def start(paths: list[Path]):
+            media_status.set_subtitle(f"Converting {len(paths)} image(s) to {fmt.upper()}...")
+            run_bg(lambda: convert_images(paths, fmt),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_multiple("Select Images to Convert", start)
+
+    resize_row = Adw.ComboRow(use_markup=False, title="Image Resize Preset",
+                              model=Gtk.StringList.new([lbl for _, lbl, _ in IMAGE_RESIZE_PRESETS]))
+
+    def on_resize_images() -> None:
+        preset = IMAGE_RESIZE_PRESETS[resize_row.get_selected()][0]
+        def start(paths: list[Path]):
+            media_status.set_subtitle(f"Resizing {len(paths)} image(s) ({preset})...")
+            run_bg(lambda: resize_images(paths, preset=preset),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_multiple("Select Images to Resize", start)
+
+    media_group.add(button_row("Compress Video", "Choose Video", on_compress_video,
+                               "Re-encodes to fast-start H.264/AAC MP4 beside source file"))
+    media_group.add(button_row("Video to GIF", "Choose Video", on_make_gif,
+                               "Two-pass Lanczos palette GIF beside source file"))
+    media_group.add(fmt_row)
+    media_group.add(button_row("Batch Convert Images", "Choose Images", on_convert_images,
+                               "Convert multiple PNG/JPG/WebP/AVIF files at once"))
+    media_group.add(resize_row)
+    media_group.add(button_row("Batch Resize Images", "Choose Images", on_resize_images,
+                               "Scale batches of images to preset dimensions"))
+    media_group.add(media_status)
+    page.add(media_group)
+
+    # 5. Environment Variables Manager
+    env_active, env_profiles = load_profiles()
+    env_group = Adw.PreferencesGroup(
+        title="Environment Variables",
+        description="Manage ~/.config/environment.d/90-knobu.conf with live systemd user session sync.",
+    )
+    env_status = Adw.ActionRow(use_markup=False, title="Active Profile", subtitle=f"Profile: {env_active}")
+    env_key_in = Adw.EntryRow(title="Variable Name (e.g. JAVA_HOME or PATH)")
+    env_val_in = Adw.EntryRow(title="Value")
+    env_add_btn = Gtk.Button(label="Add / Update", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    env_val_in.add_suffix(env_add_btn)
+    env_sync_btn = Gtk.Button(label="Save and Sync", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    env_status.add_suffix(env_sync_btn)
+    env_group.add(env_status)
+    env_group.add(env_key_in)
+    env_group.add(env_val_in)
+    env_rows: list[Gtk.Widget] = []
+
+    def rebuild_env() -> None:
+        for r in env_rows:
+            env_group.remove(r)
+        env_rows.clear()
+        entries = env_profiles.get(env_active, [])
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No custom user variables configured")
+            env_group.add(empty)
+            env_rows.append(empty)
+        else:
+            for item in entries:
+                r = Adw.SwitchRow(use_markup=False, title=item.key, subtitle=item.value)
+                r.set_active(item.enabled)
+                def on_tgl(sw, _p, entry=item):
+                    entry.enabled = sw.get_active()
+                r.connect("notify::active", on_tgl)
+                del_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                                     css_classes=["flat", "circular"], tooltip_text="Remove variable")
+                def on_del(_b, entry=item):
+                    env_profiles[env_active].remove(entry)
+                    rebuild_env()
+                del_btn.connect("clicked", on_del)
+                r.add_suffix(del_btn)
+                env_group.add(r)
+                env_rows.append(r)
+
+        sys_exp = Adw.ExpanderRow(use_markup=False, title="Inherited Session Variables (Read-only)")
+        for sk, sv in system_env_snapshot()[:20]:
+            sys_exp.add_row(Adw.ActionRow(use_markup=False, title=sk, subtitle=sv))
+        env_group.add(sys_exp)
+        env_rows.append(sys_exp)
+
+    def on_add_env(*_args) -> None:
+        k = env_key_in.get_text().strip()
+        v = env_val_in.get_text().strip()
+        if not is_valid_key(k):
+            env_status.set_subtitle(f"Invalid variable name: {k!r}")
+            return
+        lst = env_profiles.setdefault(env_active, [])
+        for existing in lst:
+            if existing.key == k:
+                existing.value = v
+                existing.enabled = True
+                break
+        else:
+            lst.append(EnvEntry(key=k, value=v, enabled=True))
+        env_key_in.set_text("")
+        env_val_in.set_text("")
+        rebuild_env()
+
+    def on_sync_env(_b) -> None:
+        env_status.set_subtitle("Syncing environment...")
+        run_bg(lambda: save_profiles(env_active, env_profiles, apply_live=True),
+               lambda res: env_status.set_subtitle(res[1]))
+
+    env_add_btn.connect("clicked", on_add_env)
+    env_sync_btn.connect("clicked", on_sync_env)
+    rebuild_env()
+    page.add(env_group)
+
+    # 6. Hosts File Editor
+    host_entries, host_preserved = load_hosts()
+    hosts_group = Adw.PreferencesGroup(
+        title="Hosts File Editor",
+        description="Toggle or add /etc/hosts entries safely with automatic backup.",
+    )
+    hosts_status = Adw.ActionRow(use_markup=False, title="/etc/hosts", subtitle=f"{len(host_entries)} entries loaded")
+    hosts_save_btn = Gtk.Button(label="Save /etc/hosts", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    hosts_status.add_suffix(hosts_save_btn)
+    hosts_group.add(hosts_status)
+
+    h_ip_in = Adw.EntryRow(title="IP Address (e.g. 127.0.0.1)")
+    h_name_in = Adw.EntryRow(title="Hostname(s) (e.g. api.local)")
+    h_add_btn = Gtk.Button(label="Add", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    h_name_in.add_suffix(h_add_btn)
+    hosts_group.add(h_ip_in)
+    hosts_group.add(h_name_in)
+    host_rows: list[Gtk.Widget] = []
+
+    def rebuild_hosts() -> None:
+        for r in host_rows:
+            hosts_group.remove(r)
+        host_rows.clear()
+        for entry in host_entries[:25]:
+            sub = f"{' '.join(entry.hosts)}{(' · #' + entry.comment) if entry.comment else ''}"
+            r = Adw.SwitchRow(use_markup=False, title=entry.ip, subtitle=sub)
+            r.set_active(entry.enabled)
+            def on_h_tgl(sw, _p, ent=entry):
+                ent.enabled = sw.get_active()
+            r.connect("notify::active", on_h_tgl)
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                               css_classes=["flat", "circular"], tooltip_text="Delete host entry")
+            def on_h_del(_b, ent=entry):
+                host_entries.remove(ent)
+                rebuild_hosts()
+            del_b.connect("clicked", on_h_del)
+            r.add_suffix(del_b)
+            hosts_group.add(r)
+            host_rows.append(r)
+
+    def on_add_host(*_args) -> None:
+        ip = h_ip_in.get_text().strip()
+        names = h_name_in.get_text().split()
+        err = validate_host_entry(ip, names)
+        if err:
+            hosts_status.set_subtitle(err)
+            return
+        host_entries.append(HostEntry(ip=ip, hosts=names, comment="knobu", enabled=True))
+        h_ip_in.set_text("")
+        h_name_in.set_text("")
+        rebuild_hosts()
+
+    def on_save_hosts(_b) -> None:
+        hosts_status.set_subtitle("Saving /etc/hosts...")
+        run_bg(lambda: save_hosts(host_entries, host_preserved),
+               lambda res: hosts_status.set_subtitle(res[1]))
+
+    h_add_btn.connect("clicked", on_add_host)
+    hosts_save_btn.connect("clicked", on_save_hosts)
+    rebuild_hosts()
+    page.add(hosts_group)
+
+    # 7. File Locksmith
+    lock_group = Adw.PreferencesGroup(
+        title="File Locksmith",
+        description="Find processes holding open handles on a file and terminate them safely.",
+    )
+    lock_status = Adw.ActionRow(use_markup=False, title="Target File", subtitle="Choose a file to inspect open locks")
+    lock_rows: list[Gtk.Widget] = []
+
+    def inspect_locks(target: Path) -> None:
+        for r in lock_rows:
+            lock_group.remove(r)
+        lock_rows.clear()
+        lock_status.set_subtitle(str(target))
+        locks = find_file_locks(target)
+        if not locks:
+            empty = Adw.ActionRow(use_markup=False, title="No locking processes found",
+                                  subtitle="No readable processes hold an open file descriptor to this target")
+            lock_group.add(empty)
+            lock_rows.append(empty)
+            return
+        for lk in locks[:20]:
+            r = Adw.ActionRow(use_markup=False, title=f"{lk.process} (PID {lk.pid})",
+                              subtitle=f"fd {lk.fd} · {lk.path}")
+            k_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER, css_classes=["pill", "destructive-action"])
+            def on_lk_kill(_b, pid=lk.pid, row=r):
+                _b.set_sensitive(False)
+                run_bg(lambda: kill_process(pid), lambda res: (row.set_subtitle(res[1]), inspect_locks(target)))
+            k_btn.connect("clicked", on_lk_kill)
+            r.add_suffix(k_btn)
+            lock_group.add(r)
+            lock_rows.append(r)
+
+    lock_btn = Gtk.Button(label="Check File", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    lock_btn.connect("clicked", lambda _b: pick_single("Select File to Check Locks", inspect_locks))
+    lock_status.add_suffix(lock_btn)
+    lock_group.add(lock_status)
+    page.add(lock_group)
+
+    # 8. Extended PowerToys (Shortcut Guide, ZoomIt, Quick Accent, Light Switch, Workspaces)
+    from knobu.modules.powertools.theme import get_theme, set_theme
+    from knobu.modules.powertools.workspaces import WorkspaceGroup, launch_workspace, load_workspaces, save_workspaces
+
+    ext_group = Adw.PreferencesGroup(
+        title="Extended PowerToys Utilities",
+        description="Shortcut Guide overlay, ZoomIt freeze-annotate, Quick Accent picker, and Light Switch theme.",
+    )
+    ext_group.add(shortcut_row(store, mid, "shortcut_guide_hotkey", "Shortcut Guide Shortcut",
+                               "Interactive overlay listing all configured Knobu and desktop shortcuts"))
+    ext_group.add(button_row("Shortcut Guide", "Open Guide", lambda: launch.knobu("shortcut-guide"),
+                             "View all keyboard shortcuts in one searchable window"))
+    ext_group.add(shortcut_row(store, mid, "zoomit_hotkey", "ZoomIt Annotation Shortcut",
+                               "Freeze screen, zoom with scroll wheel, and draw pen/arrow/box annotations"))
+    ext_group.add(button_row("ZoomIt", "Start ZoomIt", lambda: launch.knobu("zoomit"),
+                             "Launch screen zoom and annotation overlay now"))
+    ext_group.add(button_row("Quick Accent", "Open Picker", lambda: launch.knobu("quick-accent"),
+                             "Pick accented characters and symbols to paste"))
+    ext_group.add(switch_row(store, mid, "light_switch_enabled", "Light Switch (Auto Theme)",
+                             "Automatically switch GNOME / KDE dark and light theme on schedule"))
+    ext_group.add(button_row("Desktop Theme", "Toggle Dark/Light",
+                             lambda: set_theme("toggle"),
+                             f"Current theme: {get_theme().capitalize()}"))
+    page.add(ext_group)
+
+    # 9. Workspaces Launcher
+    ws_group = Adw.PreferencesGroup(
+        title="Workspaces Launcher",
+        description="Save named app and command groups and launch them together in one click.",
+    )
+    ws_name_entry = Adw.EntryRow(title="Workspace Name (e.g. Dev Ops)")
+    ws_cmds_entry = Adw.EntryRow(title="Commands (semicolon-separated, e.g. code; gnome-terminal)")
+    ws_add_btn = Gtk.Button(label="Save Workspace", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    ws_cmds_entry.add_suffix(ws_add_btn)
+    ws_group.add(ws_name_entry)
+    ws_group.add(ws_cmds_entry)
+    ws_rows: list[Gtk.Widget] = []
+
+    def rebuild_workspaces() -> None:
+        for r in ws_rows:
+            ws_group.remove(r)
+        ws_rows.clear()
+        for idx, g in enumerate(load_workspaces()):
+            row = Adw.ActionRow(use_markup=False, title=g.name, subtitle=", ".join(g.commands))
+            launch_b = Gtk.Button(label="Launch", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            launch_b.connect("clicked", lambda _b, n=g.name, r=row: r.set_subtitle(launch_workspace(n)[1]))
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+            def on_del_ws(_b, i=idx):
+                groups = load_workspaces()
+                if 0 <= i < len(groups):
+                    groups.pop(i)
+                    save_workspaces(groups)
+                rebuild_workspaces()
+            del_b.connect("clicked", on_del_ws)
+            row.add_suffix(launch_b)
+            row.add_suffix(del_b)
+            ws_group.add(row)
+            ws_rows.append(row)
+
+    def on_add_ws(_b) -> None:
+        name = ws_name_entry.get_text().strip()
+        cmds = [c.strip() for c in ws_cmds_entry.get_text().split(";") if c.strip()]
+        if not name or not cmds:
+            return
+        groups = [g for g in load_workspaces() if g.name.lower() != name.lower()]
+        groups.append(WorkspaceGroup(name=name, commands=cmds))
+        save_workspaces(groups)
+        ws_name_entry.set_text("")
+        ws_cmds_entry.set_text("")
+        rebuild_workspaces()
+
+    ws_add_btn.connect("clicked", on_add_ws)
+    rebuild_workspaces()
+    page.add(ws_group)
+
+    return page
+
+
+def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.notifications.store import NotificationHistory
+    from knobu.modules.powertools.aws_cli import get_active_aws_profile, load_aws_profiles, set_active_aws_profile
+    from knobu.modules.powertools.network import fetch_public_ip, get_network_status
+
+    mid = NotificationsModule.id
+    page = ModulePage(store, NotificationsModule)
+
+    tray_group = Adw.PreferencesGroup(
+        title="Top Notification Tray and HUD",
+        description="Display Knobu in your top bar with quick toggles, IP status, AWS profile switcher, and alerts.",
+    )
+    tray_group.add(switch_row(store, mid, "show_tray", "Show Top Notification Tray Icon",
+                              "Publish StatusNotifierItem dropdown menu for GNOME AppIndicator and KDE Plasma"))
+    tray_group.add(switch_row(store, mid, "show_public_ip", "Show Public IP in Tray Menu",
+                              "Fetch and display your current public IPv4 address with 1-click copy"))
+    tray_group.add(switch_row(store, mid, "show_hud", "Enable Mac-Style HUD Capsule",
+                              "Display compact Dynamic Island floating banner on incoming desktop notifications"))
+    tray_group.add(switch_row(store, mid, "dnd", "Do Not Disturb",
+                              "Still record incoming notifications while suppressing floating HUD banners"))
+    page.add(tray_group)
+
+    net = get_network_status()
+    net_group = Adw.PreferencesGroup(
+        title="Live Network and AWS CLI Status",
+        description="Same live readout shown in your top notification tray dropdown.",
+    )
+    net_group.add(Adw.ActionRow(use_markup=False, title=f"Connection ({net.connection_type or 'network'})",
+                                subtitle=f"{net.connection_name}"))
+    if net.vpn_active and net.vpn_ip:
+        vpn_dev_label = f" ({net.vpn_device})" if net.vpn_device and net.vpn_device != net.vpn_name else ""
+        net_group.add(Adw.ActionRow(use_markup=False, title=f"VPN Service: {net.vpn_name}{vpn_dev_label}",
+                                    subtitle=f"Active Tunnel · IP: {net.vpn_ip}"))
+
+    from knobu.system.clipboard import set_clipboard
+
+    def make_ip_row(title: str, initial: str, fetch_fn) -> Adw.ActionRow:
+        row = Adw.ActionRow(use_markup=False, title=title, subtitle=initial)
+        state = {"val": initial}
+
+        copy_btn = Gtk.Button(
+            icon_name="edit-copy-symbolic",
+            tooltip_text="Copy IP",
+            valign=Gtk.Align.CENTER,
+            css_classes=["flat"],
+        )
+
+        def on_copy(_b):
+            val = state["val"]
+            if val and val not in ("Unavailable", "Offline", "Click Refresh to load", "Refreshing..."):
+                set_clipboard(val)
+                row.set_subtitle(f"{val} (copied)")
+
+        copy_btn.connect("clicked", on_copy)
+        row.add_suffix(copy_btn)
+        row._state = state
+        row._fetch_fn = fetch_fn
+        return row
+
+    row_private = make_ip_row("Private IP", net.private_ip, lambda: get_network_status().private_ip)
+    net_group.add(row_private)
+
+    row_public = make_ip_row("Public IP", "Click Refresh to load", lambda: fetch_public_ip() or "Offline")
+    net_group.add(row_public)
+
+    row_vpn = None
+    if net.vpn_active and net.vpn_ip:
+        row_vpn = make_ip_row(f"VPN IP ({net.vpn_name})", net.vpn_ip, lambda: get_network_status().vpn_ip or "Disconnected")
+        net_group.add(row_vpn)
+
+    # Standalone large refresh button row clearly separated from Copy actions
+    refresh_row = Adw.ActionRow(
+        use_markup=False,
+        title="Network and IP Refresh",
+        subtitle="Re-query local interfaces, active VPN tunnel, and fetch live public IP",
+    )
+    refresh_all_btn = Gtk.Button(
+        icon_name="view-refresh-symbolic",
+        tooltip_text="Refresh all IPs",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+
+    def on_refresh_all(_b):
+        refresh_all_btn.set_sensitive(False)
+        row_private.set_subtitle("Refreshing...")
+        row_public.set_subtitle("Refreshing...")
+        if row_vpn:
+            row_vpn.set_subtitle("Refreshing...")
+
+        def worker():
+            fresh_net = get_network_status()
+            fresh_pub = fetch_public_ip() or "Offline"
+            row_private._state["val"] = fresh_net.private_ip
+            row_public._state["val"] = fresh_pub
+            if row_vpn:
+                row_vpn._state["val"] = fresh_net.vpn_ip or "Disconnected"
+
+            def apply_ui():
+                row_private.set_subtitle(fresh_net.private_ip)
+                row_public.set_subtitle(fresh_pub)
+                if row_vpn:
+                    row_vpn.set_subtitle(fresh_net.vpn_ip or "Disconnected")
+                refresh_all_btn.set_sensitive(True)
+                return False
+
+            GLib.idle_add(apply_ui)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    refresh_all_btn.connect("clicked", on_refresh_all)
+    refresh_row.add_suffix(refresh_all_btn)
+    net_group.add(refresh_row)
+
+    active_aws = get_active_aws_profile()
+    profiles = load_aws_profiles()
+    aws_row = Adw.ActionRow(use_markup=False, title="Active AWS CLI Profile",
+                            subtitle=f"{active_aws} ({len(profiles)} configured in ~/.aws)")
+    if profiles:
+        names = [p.name for p in profiles]
+        sel = Adw.ComboRow(use_markup=False, title="Switch Active AWS Profile",
+                           model=Gtk.StringList.new(names))
+        if active_aws in names:
+            sel.set_selected(names.index(active_aws))
+        def on_aws_sel(r, _p):
+            chosen = profiles[r.get_selected()]
+            ok, msg = set_active_aws_profile(chosen.name, chosen.region)
+            aws_row.set_subtitle(f"{chosen.name} — {msg}" if ok else msg)
+        sel.connect("notify::selected", on_aws_sel)
+        net_group.add(aws_row)
+        net_group.add(sel)
+    else:
+        net_group.add(aws_row)
+    page.add(net_group)
+
+    hist = NotificationHistory()
+    hist_group = Adw.PreferencesGroup(title="Notification Center")
+    hist_row = Adw.ActionRow(use_markup=False, title="Recorded Notifications",
+                             subtitle=f"{hist.count()} notification(s) saved")
+    open_btn = Gtk.Button(label="Open Drawer", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    open_btn.connect("clicked", lambda _b: launch.knobu("notifications"))
+    hist_row.add_suffix(open_btn)
+    hist_group.add(hist_row)
+    page.add(hist_group)
+
+    return page
+
+
+def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.powertools.aws_cli import get_active_aws_profile, load_aws_profiles, set_active_aws_profile
+    from knobu.modules.powertools.cron import (
+        add_cron_job,
+        cron_service_status,
+        list_cron_jobs,
+        remove_cron_job,
+        toggle_cron_job,
+    )
+    from knobu.modules.powertools.devops import (
+        calculate_cidr,
+        get_aws_caller_identity,
+        get_docker_containers,
+        get_kube_contexts,
+        inspect_ssl_cert,
+        query_dns,
+        switch_kube_context,
+    )
+
+    page = Adw.PreferencesPage()
+
+    hero = Gtk.Box(spacing=18, css_classes=["hero"])
+    hero.append(tile("network-server-symbolic", "large"))
+    text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, valign=Gtk.Align.CENTER, hexpand=True)
+    text.append(Gtk.Label(label="DevOps on Cloud", xalign=0, css_classes=["title-2"]))
+    text.append(Gtk.Label(
+        label="AWS CLI profiles, Kubernetes & Docker contexts, network diagnostics, and local cron jobs.",
+        xalign=0, wrap=True, css_classes=["dim-label", "hero-subtitle"],
+    ))
+    hero.append(text)
+    header = Adw.PreferencesGroup()
+    header.add(hero)
+    page.add(header)
+
+    # 1. AWS CLI & Caller Identity
+    aws_group = Adw.PreferencesGroup(title="AWS CLI and Identity")
+    active_aws = get_active_aws_profile()
+    profiles = load_aws_profiles()
+    aws_row = Adw.ActionRow(use_markup=False, title="Active AWS CLI Profile",
+                            subtitle=f"{active_aws} ({len(profiles)} configured in ~/.aws)")
+    aws_group.add(aws_row)
+    if profiles:
+        names = [p.name for p in profiles]
+        sel = Adw.ComboRow(use_markup=False, title="Switch Active AWS Profile",
+                           model=Gtk.StringList.new(names))
+        if active_aws in names:
+            sel.set_selected(names.index(active_aws))
+        def on_aws_sel(r, _p):
+            chosen = profiles[r.get_selected()]
+            ok, msg = set_active_aws_profile(chosen.name, chosen.region)
+            aws_row.set_subtitle(f"{chosen.name} — {msg}" if ok else msg)
+        sel.connect("notify::selected", on_aws_sel)
+        aws_group.add(sel)
+
+    ident_row = Adw.ActionRow(
+        use_markup=False,
+        title="AWS Caller Identity",
+        subtitle="Click Verify to inspect active Account ID and User/Role ARN",
+    )
+    verify_aws_btn = Gtk.Button(
+        icon_name="security-high-symbolic",
+        tooltip_text="Verify active AWS identity (STS)",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+    def on_verify_aws(_b):
+        ident_row.set_subtitle("Checking AWS STS...")
+        def worker():
+            ident = get_aws_caller_identity()
+            msg = f"Error: {ident['error']}" if "error" in ident else f"Account {ident.get('Account')} · {ident.get('Arn')}"
+            GLib.idle_add(lambda: (ident_row.set_subtitle(msg), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+    verify_aws_btn.connect("clicked", on_verify_aws)
+    ident_row.add_suffix(verify_aws_btn)
+    aws_group.add(ident_row)
+    page.add(aws_group)
+
+    # 2. Containers & Kubernetes Context
+    infra_group = Adw.PreferencesGroup(title="Kubernetes and Containers")
+    cur_kube, all_kubes = get_kube_contexts()
+    if all_kubes:
+        kube_row = Adw.ComboRow(use_markup=False, title="Active Kubernetes Context",
+                                model=Gtk.StringList.new(all_kubes))
+        if cur_kube in all_kubes:
+            kube_row.set_selected(all_kubes.index(cur_kube))
+        kube_row.connect("notify::selected", lambda r, _p: switch_kube_context(all_kubes[r.get_selected()]))
+        infra_group.add(kube_row)
+    else:
+        infra_group.add(Adw.ActionRow(use_markup=False, title="Kubernetes Context",
+                                      subtitle="No active kubectl contexts configured"))
+
+    conts = get_docker_containers()
+    docker_sub = f"{len(conts)} container(s): {', '.join(c.name for c in conts[:4])}" if conts else "No active Docker containers"
+    infra_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle=docker_sub))
+    page.add(infra_group)
+
+    # 3. Network & DevOps Diagnostics
+    diag_group = Adw.PreferencesGroup(
+        title="Network and DevOps Diagnostics",
+        description="Live DNS query, SSL certificate inspection, and CIDR subnet calculation.",
+    )
+
+    dns_row = Adw.ActionRow(use_markup=False, title="DNS Lookup", subtitle="Query A, AAAA, CNAME, MX records")
+    dns_entry = Gtk.Entry(placeholder_text="domain (e.g. google.com)", valign=Gtk.Align.CENTER, width_request=220)
+    dns_btn = Gtk.Button(icon_name="system-search-symbolic", tooltip_text="Query DNS", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_dns(_b):
+        dom = dns_entry.get_text().strip()
+        if not dom:
+            return
+        dns_row.set_subtitle("Querying...")
+        def worker():
+            ok, recs, msg = query_dns(dom, "A")
+            sub = f"{dom} -> {', '.join(r.value for r in recs[:3])}" if ok and recs else f"{dom}: {msg}"
+            GLib.idle_add(lambda: (dns_row.set_subtitle(sub), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+    dns_btn.connect("clicked", on_dns)
+    dns_row.add_suffix(dns_entry)
+    dns_row.add_suffix(dns_btn)
+    diag_group.add(dns_row)
+
+    ssl_row = Adw.ActionRow(use_markup=False, title="SSL/TLS Certificate", subtitle="Check certificate expiration and issuer")
+    ssl_entry = Gtk.Entry(placeholder_text="host (e.g. github.com)", valign=Gtk.Align.CENTER, width_request=220)
+    ssl_btn = Gtk.Button(icon_name="channel-secure-symbolic", tooltip_text="Inspect SSL", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_ssl(_b):
+        host = ssl_entry.get_text().strip()
+        if not host:
+            return
+        ssl_row.set_subtitle("Connecting...")
+        def worker():
+            res = inspect_ssl_cert(host)
+            sub = (f"{res.issuer} · {res.days_left} day(s) left (Expires: {res.expiry_date})"
+                   if res.is_valid else f"Invalid/Error: {res.error or 'Expired'}")
+            GLib.idle_add(lambda: (ssl_row.set_subtitle(sub), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+    ssl_btn.connect("clicked", on_ssl)
+    ssl_row.add_suffix(ssl_entry)
+    ssl_row.add_suffix(ssl_btn)
+    diag_group.add(ssl_row)
+
+    cidr_row = Adw.ActionRow(use_markup=False, title="CIDR Subnet Calculator", subtitle="Calculate network mask, broadcast, and usable host capacity")
+    cidr_entry = Gtk.Entry(placeholder_text="CIDR (e.g. 10.0.0.0/16)", valign=Gtk.Align.CENTER, width_request=220)
+    cidr_btn = Gtk.Button(icon_name="accessories-calculator-symbolic", tooltip_text="Calculate", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_cidr(_b):
+        c_str = cidr_entry.get_text().strip()
+        if not c_str:
+            return
+        ok, res, msg = calculate_cidr(c_str)
+        sub = (f"{res.cidr}: {res.usable_hosts:,} usable hosts ({res.first_host} - {res.last_host}) · Netmask {res.netmask}"
+               if ok and res else f"Error: {msg}")
+        cidr_row.set_subtitle(sub)
+    cidr_btn.connect("clicked", on_cidr)
+    cidr_row.add_suffix(cidr_entry)
+    cidr_row.add_suffix(cidr_btn)
+    diag_group.add(cidr_row)
+    page.add(diag_group)
+
+    # 4. Local Cron Jobs & Scheduler
+    cron_active, cron_msg = cron_service_status()
+    cron_group = Adw.PreferencesGroup(
+        title="Local Cron Jobs and Scheduler",
+        description=f"Cron Daemon: {'Running' if cron_active else 'Inactive'} ({cron_msg})",
+    )
+    cron_sched = Adw.EntryRow(title="Schedule (e.g. 0 12 * * * or @daily)")
+    cron_cmd = Adw.EntryRow(title="Command (e.g. /path/to/backup.sh)")
+    cron_comment = Adw.EntryRow(title="Description (optional)")
+    cron_add_btn = Gtk.Button(label="Add Cron Job", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    cron_comment.add_suffix(cron_add_btn)
+    cron_status = Adw.ActionRow(use_markup=False, title="Crontab Status", subtitle="Ready")
+
+    cron_group.add(cron_sched)
+    cron_group.add(cron_cmd)
+    cron_group.add(cron_comment)
+    cron_group.add(cron_status)
+
+    cron_rows: list[Gtk.Widget] = []
+
+    def rebuild_cron() -> None:
+        for r in cron_rows:
+            cron_group.remove(r)
+        cron_rows.clear()
+        jobs = list_cron_jobs()
+        if not jobs:
+            empty = Adw.ActionRow(use_markup=False, title="No user cron jobs configured",
+                                  subtitle="Add a cron job above to schedule recurring local tasks")
+            cron_group.add(empty)
+            cron_rows.append(empty)
+            return
+        for idx, job in enumerate(jobs):
+            title = f"{job.schedule} — {job.comment}" if job.comment else job.schedule
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=GLib.markup_escape_text(title, -1),
+                subtitle=GLib.markup_escape_text(job.command, -1),
+            )
+            sw = Gtk.Switch(active=job.enabled, valign=Gtk.Align.CENTER, tooltip_text="Enable or pause cron job")
+            sw.connect("notify::active", lambda _s, _p, i=idx: (toggle_cron_job(i), rebuild_cron()))
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                               tooltip_text="Remove cron job", css_classes=["flat"])
+            del_b.connect("clicked", lambda _b, i=idx: (remove_cron_job(i), rebuild_cron()))
+            row.add_suffix(sw)
+            row.add_suffix(del_b)
+            cron_group.add(row)
+            cron_rows.append(row)
+
+    def on_add_cron(_b) -> None:
+        ok, msg = add_cron_job(cron_sched.get_text(), cron_cmd.get_text(), cron_comment.get_text())
+        cron_status.set_subtitle(msg)
+        if ok:
+            cron_sched.set_text("")
+            cron_cmd.set_text("")
+            cron_comment.set_text("")
+            rebuild_cron()
+
+    cron_add_btn.connect("clicked", on_add_cron)
+    rebuild_cron()
+    page.add(cron_group)
+
+    return page
+
+
+def automation_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    import uuid
+    page = ModulePage(store, AutomationModule)
+
+    builder = Adw.PreferencesGroup(
+        title="New Automation Rule",
+        description="Build Mac Shortcuts-style rules: When [Trigger] -> If [Condition] -> Then [Action].",
+    )
+    name_row = Adw.EntryRow(title="Rule Name (e.g. Office Wi-Fi Setup)")
+    trig_row = Adw.ComboRow(use_markup=False, title="When (Trigger)",
+                            model=Gtk.StringList.new([lbl for _, lbl in TRIGGER_TYPES]))
+    trig_val = Adw.EntryRow(title="Trigger Value (SSID, %, app, path, or HH:MM)")
+    cond_row = Adw.ComboRow(use_markup=False, title="If (Condition)",
+                            model=Gtk.StringList.new([lbl for _, lbl in CONDITION_TYPES]))
+    cond_val = Adw.EntryRow(title="Condition Value (optional)")
+    act_row = Adw.ComboRow(use_markup=False, title="Then (Action)",
+                           model=Gtk.StringList.new([lbl for _, lbl in ACTION_TYPES]))
+    act_val = Adw.EntryRow(title="Action Value (message, profile, dark/light, or command)")
+
+    add_btn = Gtk.Button(label="Add Rule", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    act_val.add_suffix(add_btn)
+    for w in (name_row, trig_row, trig_val, cond_row, cond_val, act_row, act_val):
+        builder.add(w)
+    page.add(builder)
+
+    rules_group = Adw.PreferencesGroup(title="Active Automation Rules")
+    rules_rows: list[Gtk.Widget] = []
+
+    hist_group = Adw.PreferencesGroup(title="Execution History")
+    hist_rows: list[Gtk.Widget] = []
+
+    def rebuild_history() -> None:
+        for r in hist_rows:
+            hist_group.remove(r)
+        hist_rows.clear()
+        entries = load_history(limit=10)
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No executions yet",
+                                  subtitle="Rules run automatically in the background or via Test Run")
+            hist_group.add(empty)
+            hist_rows.append(empty)
+            return
+        for ent in entries:
+            ts = time.strftime("%H:%M:%S", time.localtime(ent.timestamp))
+            row = Adw.ActionRow(use_markup=False, title=f"[{ts}] {ent.rule_name}",
+                                subtitle=f"{ent.trigger} -> {ent.result}")
+            hist_group.add(row)
+            hist_rows.append(row)
+
+    def rebuild_rules() -> None:
+        for r in rules_rows:
+            rules_group.remove(r)
+        rules_rows.clear()
+        rules = load_rules()
+        if not rules:
+            empty = Adw.ActionRow(use_markup=False, title="No automation rules configured")
+            rules_group.add(empty)
+            rules_rows.append(empty)
+            return
+        for idx, rule in enumerate(rules):
+            act_desc = ", ".join(f"{a.type}({a.value})" for a in rule.actions)
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=rule.name,
+                subtitle=f"When {rule.trigger_type}={rule.trigger_value or '*'} -> {act_desc}",
+            )
+            sw = Gtk.Switch(active=rule.enabled, valign=Gtk.Align.CENTER)
+            def on_toggle(s, _p, i=idx):
+                cur = load_rules()
+                if 0 <= i < len(cur):
+                    cur[i].enabled = s.get_active()
+                    save_rules(cur)
+            sw.connect("notify::active", on_toggle)
+
+            test_b = Gtk.Button(label="Test Run", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            def on_test(_b, r_obj=rule, r_widget=row):
+                _ok, msg = run_rule_now(r_obj)
+                r_widget.set_subtitle(f"Last test: {msg}")
+                rebuild_history()
+            test_b.connect("clicked", on_test)
+
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+            def on_del(_b, i=idx):
+                cur = load_rules()
+                if 0 <= i < len(cur):
+                    cur.pop(i)
+                    save_rules(cur)
+                rebuild_rules()
+            del_b.connect("clicked", on_del)
+
+            row.add_suffix(sw)
+            row.add_suffix(test_b)
+            row.add_suffix(del_b)
+            rules_group.add(row)
+            rules_rows.append(row)
+
+    def on_add_rule(_b) -> None:
+        r_name = name_row.get_text().strip() or "New Rule"
+        t_type = TRIGGER_TYPES[trig_row.get_selected()][0]
+        c_type = CONDITION_TYPES[cond_row.get_selected()][0]
+        a_type = ACTION_TYPES[act_row.get_selected()][0]
+        rules = load_rules()
+        rules.append(AutomationRule(
+            id=uuid.uuid4().hex[:8],
+            name=r_name,
+            enabled=True,
+            trigger_type=t_type,
+            trigger_value=trig_val.get_text().strip(),
+            condition_type=c_type,
+            condition_value=cond_val.get_text().strip(),
+            actions=[AutomationAction(type=a_type, value=act_val.get_text().strip())],
+        ))
+        save_rules(rules)
+        name_row.set_text("")
+        trig_val.set_text("")
+        cond_val.set_text("")
+        act_val.set_text("")
+        rebuild_rules()
+
+    add_btn.connect("clicked", on_add_rule)
+    rebuild_rules()
+    rebuild_history()
+    page.add(rules_group)
+    page.add(hist_group)
+    return page
+
+
+def sound_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = SoundSuiteModule.id
+    page = ModulePage(store, SoundSuiteModule)
+
+    ctrl_group = Adw.PreferencesGroup(
+        title="Microphone and Output Controls",
+        description="Global microphone mute, output device switcher, and hearing protection.",
+    )
+    ctrl_group.add(shortcut_row(store, mid, "mic_mute_hotkey", "Global Mic Mute Shortcut",
+                                "Toggle default microphone mute with OSD feedback"))
+    ctrl_group.add(shortcut_row(store, mid, "switch_output_hotkey", "Switch Output Device Shortcut",
+                                "Cycle between headphones and speakers"))
+    ctrl_group.add(switch_row(store, mid, "auto_lower_on_disconnect", "Headphone Disconnect Safety",
+                              "Automatically lower speaker volume when Bluetooth/wired headphones disconnect"))
+    ctrl_group.add(spin_row(store, mid, "safe_speaker_volume", "Safe Speaker Volume (%)",
+                            "Target volume percentage when switching back to speakers", 5, 80, 5))
+    ctrl_group.add(switch_row(store, mid, "block_bt_music_autostart", "Music App Blocker",
+                              "Prevent unintended media player launches on Bluetooth reconnect"))
+
+    _mic_vol, mic_muted = get_mic_status()
+    mic_row = Adw.ActionRow(use_markup=False, title="Microphone Status",
+                            subtitle="Muted" if mic_muted else "Active (Live)")
+    mic_btn = Gtk.Button(label="Toggle Mic Mute", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    def on_mic_btn(_b):
+        _ok, msg = toggle_mic_mute()
+        mic_row.set_subtitle(msg)
+    mic_btn.connect("clicked", on_mic_btn)
+    mic_row.add_suffix(mic_btn)
+    ctrl_group.add(mic_row)
+    page.add(ctrl_group)
+
+    sinks, _sources, streams = list_audio_state()
+    if sinks:
+        sink_group = Adw.PreferencesGroup(title="Output Devices")
+        names = [s.name for s in sinks]
+        sel = Adw.ComboRow(use_markup=False, title="Default Output Sink",
+                           model=Gtk.StringList.new(names))
+        def_idx = next((i for i, s in enumerate(sinks) if s.is_default), 0)
+        sel.set_selected(def_idx)
+        sel.connect("notify::selected", lambda r, _p: set_default_sink(sinks[r.get_selected()].id))
+        sink_group.add(sel)
+        page.add(sink_group)
+
+    mixer_group = Adw.PreferencesGroup(
+        title="Per-App Volume Mixer (up to 150%)",
+        description="Independent volume sliders and mute toggles for active playback streams.",
+    )
+    mixer_rows: list[Gtk.Widget] = []
+
+    def rebuild_mixer(*_args) -> None:
+        for r in mixer_rows:
+            mixer_group.remove(r)
+        mixer_rows.clear()
+        _, _, cur_streams = list_audio_state()
+        if not cur_streams:
+            empty = Adw.ActionRow(use_markup=False, title="No active application audio streams",
+                                  subtitle="Play audio in a browser or media app, then refresh")
+            mixer_group.add(empty)
+            mixer_rows.append(empty)
+            return
+        for st in cur_streams:
+            row = Adw.ActionRow(use_markup=False, title=st.app_name,
+                                subtitle=f"{st.volume}%{' (Muted)' if st.muted else ''}")
+            scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 150, 5)
+            scale.set_value(st.volume)
+            scale.set_size_request(180, -1)
+            scale.set_valign(Gtk.Align.CENTER)
+            def on_slide(sc, sid=st.id, r=row):
+                val = int(sc.get_value())
+                set_stream_volume(sid, val)
+                r.set_subtitle(f"{val}%")
+            scale.connect("value-changed", on_slide)
+
+            mute_b = Gtk.Button(
+                icon_name="audio-volume-muted-symbolic",
+                tooltip_text="Toggle mute",
+                valign=Gtk.Align.CENTER,
+                css_classes=["flat"],
+            )
+            mute_b.connect("clicked", lambda _b, sid=st.id: (toggle_stream_mute(sid), rebuild_mixer()))
+            row.add_suffix(scale)
+            row.add_suffix(mute_b)
+            mixer_group.add(row)
+            mixer_rows.append(row)
+
+    ref_row = Adw.ActionRow(use_markup=False, title="Active Streams", subtitle="Refresh PipeWire application streams")
+    ref_b = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    ref_b.connect("clicked", rebuild_mixer)
+    ref_row.add_suffix(ref_b)
+    mixer_group.add(ref_row)
+    rebuild_mixer()
+    page.add(mixer_group)
+
+    return page
+
+
+def windows_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = WindowModule.id
+    page = ModulePage(store, WindowModule)
+
+    aot_group = Adw.PreferencesGroup(
+        title="Always on Top",
+        description="Pin or unpin the active window above all other windows.",
+    )
+    aot_group.add(shortcut_row(store, mid, "always_on_top_hotkey", "Always on Top Shortcut",
+                               "Toggle keep-above state on the active window"))
+    aot_group.add(button_row("Pin Active Window", "Toggle Always on Top",
+                             lambda: toggle_always_on_top(store.get(mid, "excluded_apps", [])),
+                             "Pin or unpin the focused window immediately"))
+    page.add(aot_group)
+
+    fz_group = Adw.PreferencesGroup(
+        title="FancyZones Grid Snapping",
+        description="Snap windows into structured zone layouts with configurable padding.",
+    )
+    fz_group.add(choice_row(store, mid, "zone_preset", "Active Zone Layout",
+                            "Preset used by FancyZones overlay and quick-snap shortcuts", ZONE_PRESETS))
+    fz_group.add(spin_row(store, mid, "zone_gap", "Zone Padding / Gap (px)",
+                          "Spacing around and between window zones", 0, 48, 2))
+    fz_group.add(shortcut_row(store, mid, "fancyzones_hotkey", "Zone Overlay Shortcut",
+                              "Open the interactive FancyZones picker overlay"))
+    fz_group.add(shortcut_row(store, mid, "snap_left_hotkey", "Snap to Left / Primary Zone",
+                              "Snap active window to Zone 1"))
+    fz_group.add(shortcut_row(store, mid, "snap_right_hotkey", "Snap to Right / Secondary Zone",
+                              "Snap active window to Zone 2"))
+    fz_group.add(shortcut_row(store, mid, "maximize_hotkey", "Window Maximize Shortcut",
+                              "Maximize window to fill active screen area cleanly"))
+    fz_group.add(button_row("Zone Layout Editor", "Open FancyZones",
+                            lambda: launch.knobu("fancyzones"),
+                            "Launch interactive visual zone grid"))
+    fz_group.add(button_row("Maximize Window", "Maximize Active",
+                            lambda: maximize_active_window(),
+                            "Fill active monitor cleanly without fullscreen displacement"))
+    page.add(fz_group)
+
+    return page
+
+
+def sysmon_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = SystemMonitorModule.id
+    page = ModulePage(store, SystemMonitorModule)
+
+    live_group = Adw.PreferencesGroup(
+        title="Live Hardware Metrics",
+        description="Real-time CPU, per-core load, memory pressure, thermal sensors, and network throughput.",
+    )
+    cpu_row = Adw.ActionRow(use_markup=False, title="CPU Load", subtitle="Measuring...")
+    mem_row = Adw.ActionRow(use_markup=False, title="Memory Usage", subtitle="Measuring...")
+    temp_row = Adw.ActionRow(use_markup=False, title="Thermal Peak", subtitle="Measuring...")
+    net_row = Adw.ActionRow(use_markup=False, title="Network Throughput", subtitle="Measuring...")
+    bat_row = Adw.ActionRow(use_markup=False, title="Power and Battery", subtitle="Measuring...")
+
+    def refresh_metrics(*_args) -> None:
+        def worker():
+            m = collect_metrics(sample_sec=0.15)
+            cores_str = " ".join(f"{c:.0f}%" for c in m.per_core[:8])
+            GLib.idle_add(lambda: (
+                cpu_row.set_subtitle(f"{m.cpu_percent:.1f}% (Cores: {cores_str})"),
+                mem_row.set_subtitle(f"{m.mem_used_gb:.2f} / {m.mem_total_gb:.2f} GB ({m.mem_percent:.1f}%)"),
+                temp_row.set_subtitle(f"{m.max_temp_c:.1f} °C"),
+                net_row.set_subtitle(f"Down: {m.net_rx_kbps:.1f} KB/s · Up: {m.net_tx_kbps:.1f} KB/s"),
+                bat_row.set_subtitle(f"{m.battery_percent}% ({'AC Connected' if m.ac_online else 'Discharging'})"),
+                False,
+            )[-1])
+        threading.Thread(target=worker, daemon=True).start()
+
+    ref_row = Adw.ActionRow(use_markup=False, title="Sample Hardware", subtitle="Re-poll live CPU, RAM, and sensors")
+    ref_b = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    ref_b.connect("clicked", refresh_metrics)
+    ref_row.add_suffix(ref_b)
+
+    for r in (cpu_row, mem_row, temp_row, net_row, bat_row, ref_row):
+        live_group.add(r)
+    refresh_metrics()
+    page.add(live_group)
+
+    alert_group = Adw.PreferencesGroup(
+        title="Health Alerts and Tray Metrics",
+        description="Configure hardware alert thresholds and top tray RAM readout.",
+    )
+    alert_group.add(switch_row(store, mid, "top_bar_metrics", "Show Metrics in Tray Header",
+                               "Display live RAM percentage in the top notification tray status line"))
+    alert_group.add(switch_row(store, mid, "alerts_enabled", "Enable Hardware Health Alerts",
+                               "Send desktop alerts for sustained CPU load, high memory pressure, or low battery"))
+    alert_group.add(spin_row(store, mid, "cpu_alert_percent", "CPU Alert Threshold (%)",
+                             "Trigger alert when sustained CPU load exceeds this percentage", 50, 99, 5))
+    alert_group.add(spin_row(store, mid, "mem_alert_percent", "Memory Alert Threshold (%)",
+                             "Trigger alert when RAM usage exceeds this percentage", 60, 99, 5))
+    alert_group.add(spin_row(store, mid, "battery_alert_percent", "Low Battery Alert (%)",
+                             "Trigger alert when discharging below this battery percentage", 5, 40, 5))
+    page.add(alert_group)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
+    ("devops", "DevOps on Cloud", "network-server-symbolic", devops_page, "top"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
     (MouseModule.id, MouseModule.name, MouseModule.icon, mouse_page, "modules"),
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
+    (NotificationsModule.id, NotificationsModule.name, NotificationsModule.icon, notifications_page, "modules"),
+    (SoundSuiteModule.id, SoundSuiteModule.name, SoundSuiteModule.icon, sound_page, "modules"),
+    (WindowModule.id, WindowModule.name, WindowModule.icon, windows_page, "modules"),
+    (SystemMonitorModule.id, SystemMonitorModule.name, SystemMonitorModule.icon, sysmon_page, "modules"),
+    (AutomationModule.id, AutomationModule.name, AutomationModule.icon, automation_page, "modules"),
+    (PowerToolsModule.id, PowerToolsModule.name, PowerToolsModule.icon, powertools_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),
     (TextExtractorModule.id, TextExtractorModule.name, TextExtractorModule.icon,

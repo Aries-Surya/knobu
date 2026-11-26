@@ -8,6 +8,8 @@ Build-Depends: debhelper-compat (= 13),
                python3-all,
                python3-setuptools,
                python3-evdev,
+               python3-gi,
+               python3-gi-cairo,
 Standards-Version: 4.7.0
 Homepage: https://github.com/Aries-Surya/knobu
 Vcs-Browser: https://github.com/Aries-Surya/knobu
@@ -20,12 +22,13 @@ Depends: ${python3:Depends},
          ${misc:Depends},
          python3-evdev,
          python3-gi,
+         python3-gi-cairo,
          gir1.2-gtk-4.0,
          gir1.2-adw-1 (>= 1.5),
          wireplumber | pulseaudio-utils,
          systemd,
 Recommends: tesseract-ocr,
-Suggests: spectacle,
+Suggests: spectacle, ffmpeg,
 Description: PowerToys-style utilities for Ubuntu
  Knobu adds small power tools to the desktop, each one a module that can be
  switched on or off in the Knobu settings app:
