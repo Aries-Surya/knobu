@@ -1285,7 +1285,11 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         description="Same live readout shown in your top notification tray dropdown.",
     )
     net_group.add(Adw.ActionRow(use_markup=False, title=f"Connection ({net.connection_type or 'network'})",
-                                subtitle=f"{net.connection_name}" + (f" · VPN {net.vpn_ip}" if net.vpn_ip else "")))
+                                subtitle=f"{net.connection_name}"))
+    if net.vpn_active and net.vpn_ip:
+        vpn_dev_label = f" ({net.vpn_device})" if net.vpn_device and net.vpn_device != net.vpn_name else ""
+        net_group.add(Adw.ActionRow(use_markup=False, title=f"VPN Service: {net.vpn_name}{vpn_dev_label}",
+                                    subtitle=f"Active Tunnel · IP: {net.vpn_ip}"))
 
     from knobu.system.clipboard import set_clipboard
 
@@ -1293,11 +1297,7 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         row = Adw.ActionRow(use_markup=False, title=title, subtitle=initial)
         state = {"val": initial}
 
-        copy_btn = Gtk.Button(label="Copy", valign=Gtk.Align.CENTER, css_classes=["pill"])
-        refresh_btn = Gtk.Button(
-            label="Refresh", valign=Gtk.Align.CENTER, margin_start=18, width_request=116,
-            css_classes=["pill", "suggested-action"],
-        )
+        copy_btn = Gtk.Button(label="Copy IP", valign=Gtk.Align.CENTER, css_classes=["pill"])
 
         def on_copy(_b):
             val = state["val"]
@@ -1305,30 +1305,65 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                 set_clipboard(val)
                 row.set_subtitle(f"{val} (copied)")
 
-        def on_refresh(_b):
-            refresh_btn.set_sensitive(False)
-            row.set_subtitle("Refreshing...")
-            def worker():
-                fresh = fetch_fn()
-                state["val"] = fresh
-                ok = bool(fresh and fresh not in ("Unavailable", "Offline"))
-                if ok:
-                    set_clipboard(fresh)
-                GLib.idle_add(lambda: (
-                    row.set_subtitle(f"{fresh} (copied)" if ok else fresh),
-                    refresh_btn.set_sensitive(True),
-                    False,
-                )[2])
-            threading.Thread(target=worker, daemon=True).start()
-
         copy_btn.connect("clicked", on_copy)
-        refresh_btn.connect("clicked", on_refresh)
         row.add_suffix(copy_btn)
-        row.add_suffix(refresh_btn)
+        row._state = state
+        row._fetch_fn = fetch_fn
         return row
 
-    net_group.add(make_ip_row("Private IP", net.private_ip, lambda: get_network_status().private_ip))
-    net_group.add(make_ip_row("Public IP", "Click Refresh to load", lambda: fetch_public_ip() or "Offline"))
+    row_private = make_ip_row("Private IP", net.private_ip, lambda: get_network_status().private_ip)
+    net_group.add(row_private)
+
+    row_public = make_ip_row("Public IP", "Click Refresh to load", lambda: fetch_public_ip() or "Offline")
+    net_group.add(row_public)
+
+    row_vpn = None
+    if net.vpn_active and net.vpn_ip:
+        row_vpn = make_ip_row(f"VPN IP ({net.vpn_name})", net.vpn_ip, lambda: get_network_status().vpn_ip or "Disconnected")
+        net_group.add(row_vpn)
+
+    # Standalone large refresh button row clearly separated from Copy actions
+    refresh_row = Adw.ActionRow(
+        use_markup=False,
+        title="Network and IP Refresh",
+        subtitle="Re-query local interfaces, active VPN tunnel, and fetch live public IP",
+    )
+    refresh_all_btn = Gtk.Button(
+        label="Refresh All IPs",
+        valign=Gtk.Align.CENTER,
+        css_classes=["pill", "suggested-action"],
+    )
+
+    def on_refresh_all(_b):
+        refresh_all_btn.set_sensitive(False)
+        row_private.set_subtitle("Refreshing...")
+        row_public.set_subtitle("Refreshing...")
+        if row_vpn:
+            row_vpn.set_subtitle("Refreshing...")
+
+        def worker():
+            fresh_net = get_network_status()
+            fresh_pub = fetch_public_ip() or "Offline"
+            row_private._state["val"] = fresh_net.private_ip
+            row_public._state["val"] = fresh_pub
+            if row_vpn:
+                row_vpn._state["val"] = fresh_net.vpn_ip or "Disconnected"
+
+            def apply_ui():
+                row_private.set_subtitle(fresh_net.private_ip)
+                row_public.set_subtitle(fresh_pub)
+                if row_vpn:
+                    row_vpn.set_subtitle(fresh_net.vpn_ip or "Disconnected")
+                refresh_all_btn.set_sensitive(True)
+                return False
+
+            GLib.idle_add(apply_ui)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    refresh_all_btn.connect("clicked", on_refresh_all)
+    refresh_row.add_suffix(refresh_all_btn)
+    net_group.add(refresh_row)
 
     active_aws = get_active_aws_profile()
     profiles = load_aws_profiles()

@@ -351,9 +351,23 @@ class StatusTray:
             status_lbl += " · Awake"
 
         conn_prefix = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "tun": "VPN"}.get(net.connection_type, "Network")
-        net_label = f"{conn_prefix}: {net.connection_name}"
-        if net.vpn_ip:
-            net_label += f" (VPN {net.vpn_ip})"
+        net_label = f"Connection: {conn_prefix} ({net.connection_name})"
+
+        ip_rows = [
+            item(4, f"📋 Copy Private IP: {net.private_ip}",
+                 action=lambda: self._copy_with_toast("Private IP", net.private_ip)),
+        ]
+        if self.show_public_ip:
+            ip_rows.append(item(5, f"📋 Copy Public IP: {pub}",
+                                action=lambda: self._copy_with_toast("Public IP", pub)))
+        if net.vpn_active and net.vpn_ip:
+            vpn_title = f"VPN: {net.vpn_name}" + (f" ({net.vpn_device})" if net.vpn_device and net.vpn_device != net.vpn_name else "")
+            ip_rows.append(item(6, vpn_title, enabled=False))
+            ip_rows.append(item(7, f"📋 Copy VPN IP: {net.vpn_ip}",
+                                action=lambda: self._copy_with_toast(f"VPN IP ({net.vpn_name})", net.vpn_ip)))
+
+        ip_rows.append(item(8, "🔄 Refresh All IP Addresses",
+                            action=lambda: self.refresh_network_async(force_public=True)))
 
         aws_children = []
         if aws_profiles:
@@ -386,11 +400,8 @@ class StatusTray:
             item(1, status_lbl, enabled=False),
             item(2, item_type="separator"),
             item(3, net_label, enabled=False),
-            item(4, f"Private IP: {net.private_ip}  ⟳ Copy",
-                 action=self._refresh_and_copy_private_ip),
-            item(5, f"Public IP: {pub}  ⟳ Copy",
-                 action=self._refresh_and_copy_public_ip),
-            item(7, item_type="separator"),
+            *ip_rows,
+            item(9, item_type="separator"),
             item(10, f"AWS Profile: {aws_active}", children=aws_children),
             item(11, item_type="separator"),
             item(20, "Master Bypass Mode", toggle_type="checkmark", toggle_state=1 if bypassed else 0,

@@ -16,7 +16,34 @@ class NetworkStatus:
     device: str
     private_ip: str
     gateway: str = ""
+    vpn_active: bool = False
+    vpn_name: str = ""
     vpn_ip: str = ""
+    vpn_device: str = ""
+
+
+def _infer_vpn_name(dev: str, conn: str) -> str:
+    """Infer friendly VPN service name from device and connection labels."""
+    lower = f"{dev} {conn}".lower()
+    if "tailscale" in lower:
+        return "Tailscale"
+    if "wireguard" in lower or dev.startswith("wg"):
+        return "WireGuard"
+    if "openvpn" in lower:
+        return "OpenVPN"
+    if "forti" in lower:
+        return "FortiClient VPN"
+    if "cisco" in lower or "anyconnect" in lower:
+        return "Cisco AnyConnect"
+    if "globalprotect" in lower:
+        return "GlobalProtect"
+    if "zerotier" in lower or dev.startswith("zt"):
+        return "ZeroTier"
+    if conn and conn != dev and not conn.startswith("connected"):
+        return conn
+    if dev.startswith("tun"):
+        return f"VPN Tunnel ({dev})"
+    return conn or dev or "VPN"
 
 
 def parse_network_info(nmcli_out: str, route_json: str, addr_json: str = "") -> NetworkStatus:
@@ -30,7 +57,7 @@ def parse_network_info(nmcli_out: str, route_json: str, addr_json: str = "") -> 
         dev, kind, state, conn = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
         if state.startswith("connected"):
             dev_map[dev] = (kind, conn or dev)
-            if kind in ("tun", "wireguard", "vpn"):
+            if kind in ("tun", "wireguard", "vpn") or dev.startswith(("tun", "wg", "tailscale", "zt")):
                 vpn_devs.append((dev, conn or dev))
 
     outbound_dev = ""
@@ -46,17 +73,26 @@ def parse_network_info(nmcli_out: str, route_json: str, addr_json: str = "") -> 
     except ValueError:
         pass
 
-    # Map VPN IP from addr_json if active
+    # Map IP addresses from addr_json by device
     ip_by_dev: dict[str, str] = {}
+    all_ifaces: list[dict] = []
     if addr_json.strip():
         try:
-            for iface in json.loads(addr_json):
+            all_ifaces = json.loads(addr_json)
+            for iface in all_ifaces:
                 ifname = iface.get("ifname", "")
                 for info in iface.get("addr_info", []):
                     if info.get("family") == "inet" and info.get("local") and ifname not in ip_by_dev:
                         ip_by_dev[ifname] = str(info["local"])
         except ValueError:
             pass
+
+    # If nmcli didn't detect VPN, check interfaces from addr_json directly
+    if not vpn_devs and all_ifaces:
+        for iface in all_ifaces:
+            ifname = str(iface.get("ifname", ""))
+            if ifname.startswith(("tun", "tailscale", "wg", "zt")):
+                vpn_devs.append((ifname, ifname))
 
     if not private_ip and outbound_dev:
         private_ip = ip_by_dev.get(outbound_dev, "")
@@ -72,10 +108,17 @@ def parse_network_info(nmcli_out: str, route_json: str, addr_json: str = "") -> 
         conn_name = outbound_dev or ("Connected" if private_ip else "Offline")
         conn_type = conn_type or ("network" if private_ip else "offline")
 
+    vpn_active = False
+    vpn_name = ""
     vpn_ip = ""
-    for vdev, _ in vpn_devs:
-        if vdev in ip_by_dev:
-            vpn_ip = ip_by_dev[vdev]
+    vpn_device = ""
+    for vdev, vconn in vpn_devs:
+        vip = ip_by_dev.get(vdev, "")
+        if vip:
+            vpn_active = True
+            vpn_name = _infer_vpn_name(vdev, vconn)
+            vpn_ip = vip
+            vpn_device = vdev
             break
 
     return NetworkStatus(
@@ -84,7 +127,10 @@ def parse_network_info(nmcli_out: str, route_json: str, addr_json: str = "") -> 
         device=outbound_dev,
         private_ip=private_ip or "Unavailable",
         gateway=gateway,
+        vpn_active=vpn_active,
+        vpn_name=vpn_name,
         vpn_ip=vpn_ip,
+        vpn_device=vpn_device,
     )
 
 

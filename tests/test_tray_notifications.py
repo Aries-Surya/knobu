@@ -25,7 +25,10 @@ class TestTrayAndNotifications(unittest.TestCase):
         self.assertEqual(st.connection_type, "wifi")
         self.assertEqual(st.private_ip, "192.168.1.42")
         self.assertEqual(st.gateway, "192.168.1.1")
+        self.assertTrue(st.vpn_active)
+        self.assertEqual(st.vpn_name, "Tailscale")
         self.assertEqual(st.vpn_ip, "100.74.64.106")
+        self.assertEqual(st.vpn_device, "tailscale0")
 
     def test_parse_aws_files_masks_secrets(self):
         cfg = "[default]\nregion = ap-south-1\noutput = json\n[profile prod]\nregion = us-east-1\nsso_start_url = https://org.awsapps.com/start\n"
