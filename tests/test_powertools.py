@@ -84,6 +84,21 @@ class TestPowerTools(unittest.TestCase):
     def test_uninstall_rejects_bad_package_name(self):
         ok, _ = uninstall_package("bad; rm -rf /")
         self.assertFalse(ok)
+        ok2, _ = uninstall_package("../escape", source="npm")
+        self.assertFalse(ok2)
+
+    def test_multi_source_package_discovery(self):
+        from knobu.modules.powertools import cleaner
+        fake_sources = {
+            "snap": ("snap", lambda: [cleaner.PackageInfo("code", "snap", "1.9", 0, "vscode")], ["pkexec", "snap", "remove"]),
+            "brew": ("brew", lambda: [cleaner.PackageInfo("bat", "brew", "0.24", 0, "brew")], ["brew", "uninstall"]),
+            "apt": ("dpkg-query", lambda: [cleaner.PackageInfo("vim", "apt", "9.0", 5000, "editor")], ["pkexec", "apt-get", "remove", "-y"]),
+        }
+        with patch.object(cleaner, "_PACKAGE_SOURCES", fake_sources):
+            all_pkgs = cleaner.list_installed_packages()
+            self.assertEqual({p.source for p in all_pkgs}, {"snap", "brew", "apt"})
+            brew_only = cleaner.list_installed_packages(source="brew")
+            self.assertEqual([p.name for p in brew_only], ["bat"])
 
     def test_media_ffmpeg_command_builders(self):
         src = Path("/tmp/demo.mkv")

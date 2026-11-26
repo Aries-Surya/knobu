@@ -140,7 +140,7 @@ Everyday developer and maintenance utilities built into Knobu:
 
 - **Port Manager**: Inspect listening TCP/UDP ports (`ss -tulpn`), filter by port or process name, and terminate stuck processes in one click.
 - **Hardware Cleaning Mode (`Super+Alt+K`)**: Fullscreen dark overlay that exclusively locks keyboards, mice, and touchpads via `evdev` so you can wipe hardware safely; hold `Esc` for 2 seconds or wait for the countdown timer to unlock.
-- **System Cleaner & Uninstaller**: Measure and clean `~/.cache`, thumbnail previews, crash dumps, and APT cache (`apt-get clean`), plus search and remove manually installed APT packages.
+- **System Cleaner & Uninstaller**: Measure and clean `~/.cache`, thumbnail previews, crash dumps, and APT cache (`apt-get clean`), plus search and remove installed packages across **APT, Snap, Flatpak, Brew, Pipx, NPM, and Cargo**.
 - **Media Tools (`ffmpeg`)**: Local H.264/AAC MP4 compression, two-pass Lanczos GIF conversion, and batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`).
 
 ### Awake

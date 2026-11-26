@@ -766,6 +766,7 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     from knobu.modules.powertools import (
         IMAGE_FORMATS,
+        available_package_sources,
         clean_target,
         compress_video,
         convert_images,
@@ -901,43 +902,50 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     cleaner_group.add(cleaner_status)
     page.add(cleaner_group)
 
+    sources = available_package_sources()
     pkg_group = Adw.PreferencesGroup(
         title="Package Uninstaller",
-        description="Search manually installed APT packages and remove unused software.",
+        description=f"Detected sources: {', '.join(s.upper() for s in sources) or 'none'}",
     )
+    src_choices = [("all", "All Sources")] + [(s, s.upper()) for s in sources]
+    src_row = Adw.ComboRow(use_markup=False, title="Package Source",
+                           model=Gtk.StringList.new([lbl for _, lbl in src_choices]))
+    pkg_group.add(src_row)
     pkg_search = Adw.EntryRow(title="Search installed packages")
     pkg_group.add(pkg_search)
     pkg_rows: list[Gtk.Widget] = []
 
     def refresh_packages(*_args) -> None:
         q = pkg_search.get_text()
+        sel_src = src_choices[src_row.get_selected()][0]
         for r in pkg_rows:
             pkg_group.remove(r)
         pkg_rows.clear()
-        pkgs = list_installed_packages(q, limit=12)
+        pkgs = list_installed_packages(q, source=sel_src, limit=20)
         if not pkgs:
             empty = Adw.ActionRow(use_markup=False, title="No matching packages found")
             pkg_group.add(empty)
             pkg_rows.append(empty)
             return
         for pkg in pkgs:
-            size_mb = pkg.size_kb / 1024
+            meta = f"{pkg.size_kb / 1024:.1f} MB" if pkg.size_kb else (pkg.version or pkg.source)
             p_row = Adw.ActionRow(
                 use_markup=False,
-                title=f"{pkg.name} ({size_mb:.1f} MB)",
-                subtitle=pkg.summary,
+                title=f"[{pkg.source.upper()}] {pkg.name} ({meta})",
+                subtitle=pkg.summary or f"Installed via {pkg.source}",
             )
             rm_btn = Gtk.Button(label="Uninstall", valign=Gtk.Align.CENTER,
                                 css_classes=["pill", "destructive-action"])
-            def on_remove(btn, name=pkg.name, r=p_row):
+            def on_remove(btn, name=pkg.name, src=pkg.source, r=p_row):
                 btn.set_sensitive(False)
-                r.set_subtitle(f"Uninstalling {name}...")
-                run_bg(lambda: uninstall_package(name), lambda res: (r.set_subtitle(res[1]), refresh_packages()))
+                r.set_subtitle(f"Uninstalling {name} ({src})...")
+                run_bg(lambda: uninstall_package(name, src), lambda res: (r.set_subtitle(res[1]), refresh_packages()))
             rm_btn.connect("clicked", on_remove)
             p_row.add_suffix(rm_btn)
             pkg_group.add(p_row)
             pkg_rows.append(p_row)
 
+    src_row.connect("notify::selected", refresh_packages)
     pkg_search.connect("entry-activated", refresh_packages)
     pkg_search_btn = Gtk.Button(icon_name="system-search-symbolic", css_classes=["flat"],
                                 valign=Gtk.Align.CENTER, tooltip_text="Search packages")

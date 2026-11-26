@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 
-_PKG_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-:]+$")
+_PKG_RE = re.compile(r"^[a-zA-Z0-9@][a-zA-Z0-9+._:/@-]*$")
 
 
 @dataclass(frozen=True)
@@ -24,8 +25,10 @@ class CleanupTarget:
 @dataclass(frozen=True)
 class PackageInfo:
     name: str
-    size_kb: int
-    summary: str
+    source: str
+    version: str = ""
+    size_kb: int = 0
+    summary: str = ""
 
 
 def format_bytes(n: int) -> str:
@@ -210,58 +213,177 @@ def clean_target(
     return False, f"Unknown cleanup target: {target_id}", 0
 
 
-def list_installed_packages(query: str = "", limit: int = 80) -> list[PackageInfo]:
-    """List manually installed APT packages, optionally filtered by substring."""
+def _run_cmd(cmd: list[str], timeout: int = 5) -> str | None:
     try:
-        manual = subprocess.run(
-            ["apt-mark", "showmanual"],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        manual_set = {line.strip() for line in manual.stdout.splitlines() if line.strip()} if manual.returncode == 0 else set()
-        dpkg = subprocess.run(
-            ["dpkg-query", "-W", "-f=${Package}\t${Installed-Size}\t${binary:Summary}\n"],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        if dpkg.returncode != 0:
-            return []
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+        return r.stdout if r.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
-        return []
+        return None
 
-    q = query.strip().lower()
-    packages: list[PackageInfo] = []
-    for line in dpkg.stdout.splitlines():
-        parts = line.split("\t", 2)
-        if len(parts) < 2:
+
+def _list_apt() -> list[PackageInfo]:
+    if not shutil.which("dpkg-query"):
+        return []
+    manual_out = _run_cmd(["apt-mark", "showmanual"]) or ""
+    manual_set = {ln.strip() for ln in manual_out.splitlines() if ln.strip()}
+    dpkg_out = _run_cmd(["dpkg-query", "-W", "-f=${Package}\t${Version}\t${Installed-Size}\t${binary:Summary}\n"])
+    if not dpkg_out:
+        return []
+    items: list[PackageInfo] = []
+    for line in dpkg_out.splitlines():
+        parts = line.split("\t", 3)
+        if len(parts) < 3:
             continue
-        name = parts[0].strip()
+        name, ver, size_s = parts[0].strip(), parts[1].strip(), parts[2].strip()
         if manual_set and name not in manual_set:
             continue
-        summary = parts[2].strip() if len(parts) > 2 else ""
-        if q and q not in name.lower() and q not in summary.lower():
-            continue
-        try:
-            size_kb = int(parts[1])
-        except ValueError:
-            size_kb = 0
-        packages.append(PackageInfo(name, size_kb, summary))
+        summary = parts[3].strip() if len(parts) > 3 else ""
+        items.append(PackageInfo(name, "apt", ver, int(size_s) if size_s.isdigit() else 0, summary))
+    return items
 
-    packages.sort(key=lambda p: (-p.size_kb, p.name))
+
+def _list_snap() -> list[PackageInfo]:
+    if not shutil.which("snap"):
+        return []
+    out = _run_cmd(["snap", "list"])
+    if not out:
+        return []
+    items: list[PackageInfo] = []
+    for line in out.splitlines()[1:]:
+        cols = line.split()
+        if len(cols) >= 6:
+            name, ver, _rev, track, pub, notes = cols[0], cols[1], cols[2], cols[3], cols[4], " ".join(cols[5:])
+            items.append(PackageInfo(name, "snap", ver, 0, f"{pub} ({track}) {notes}".strip()))
+    return items
+
+
+def _list_flatpak() -> list[PackageInfo]:
+    if not shutil.which("flatpak"):
+        return []
+    out = _run_cmd(["flatpak", "list", "--app", "--columns=application,name,version"])
+    if not out:
+        return []
+    items: list[PackageInfo] = []
+    for line in out.splitlines():
+        cols = line.split("\t")
+        if cols and cols[0].strip():
+            app_id = cols[0].strip()
+            title = cols[1].strip() if len(cols) > 1 else ""
+            ver = cols[2].strip() if len(cols) > 2 else ""
+            items.append(PackageInfo(app_id, "flatpak", ver, 0, title))
+    return items
+
+
+def _list_brew() -> list[PackageInfo]:
+    if not shutil.which("brew"):
+        return []
+    out = _run_cmd(["brew", "list", "--versions"], timeout=10)
+    if not out:
+        return []
+    items: list[PackageInfo] = []
+    for line in out.splitlines():
+        cols = line.split()
+        if cols:
+            items.append(PackageInfo(cols[0], "brew", " ".join(cols[1:]), 0, "Homebrew formula/cask"))
+    return items
+
+
+def _list_pipx() -> list[PackageInfo]:
+    if not shutil.which("pipx"):
+        return []
+    out = _run_cmd(["pipx", "list", "--short"])
+    if not out:
+        return []
+    items: list[PackageInfo] = []
+    for line in out.splitlines():
+        cols = line.split()
+        if cols:
+            items.append(PackageInfo(cols[0], "pipx", cols[1] if len(cols) > 1 else "", 0, "Python CLI tool (pipx)"))
+    return items
+
+
+def _list_npm() -> list[PackageInfo]:
+    if not shutil.which("npm"):
+        return []
+    out = _run_cmd(["npm", "list", "-g", "--depth=0", "--json"], timeout=8)
+    if not out:
+        return []
+    try:
+        deps = json.loads(out).get("dependencies", {})
+    except ValueError:
+        return []
+    return [
+        PackageInfo(name, "npm", str(info.get("version", "")), 0, "Global Node.js package")
+        for name, info in deps.items() if isinstance(info, dict)
+    ]
+
+
+def _list_cargo() -> list[PackageInfo]:
+    if not shutil.which("cargo"):
+        return []
+    out = _run_cmd(["cargo", "install", "--list"])
+    if not out:
+        return []
+    items: list[PackageInfo] = []
+    for line in out.splitlines():
+        if not line.startswith(" ") and line.endswith(":"):
+            cols = line[:-1].split()
+            if cols:
+                items.append(PackageInfo(cols[0], "cargo", cols[1].lstrip("v") if len(cols) > 1 else "", 0, "Rust crate binary"))
+    return items
+
+
+_PACKAGE_SOURCES = {
+    "apt": ("dpkg-query", _list_apt, ["pkexec", "apt-get", "remove", "-y"]),
+    "snap": ("snap", _list_snap, ["pkexec", "snap", "remove"]),
+    "flatpak": ("flatpak", _list_flatpak, ["flatpak", "uninstall", "-y"]),
+    "brew": ("brew", _list_brew, ["brew", "uninstall"]),
+    "pipx": ("pipx", _list_pipx, ["pipx", "uninstall"]),
+    "npm": ("npm", _list_npm, ["npm", "uninstall", "-g"]),
+    "cargo": ("cargo", _list_cargo, ["cargo", "uninstall"]),
+}
+
+
+def available_package_sources() -> list[str]:
+    """Return all supported Linux package managers detected on this system."""
+    return [src for src, (binary, _, _) in _PACKAGE_SOURCES.items() if shutil.which(binary)]
+
+
+def list_installed_packages(query: str = "", source: str = "all", limit: int = 80) -> list[PackageInfo]:
+    """List installed packages across all detected Linux sources, filtered by query/source."""
+    q = query.strip().lower()
+    src_filter = source.strip().lower()
+    packages: list[PackageInfo] = []
+
+    for src, (_, lister, _) in _PACKAGE_SOURCES.items():
+        if src_filter != "all" and src != src_filter:
+            continue
+        for pkg in lister():
+            if q and q not in pkg.name.lower() and q not in pkg.summary.lower() and q not in pkg.source:
+                continue
+            packages.append(pkg)
+
+    packages.sort(key=lambda p: (0 if p.source != "apt" else 1, -p.size_kb, p.name))
     return packages[:limit]
 
 
-def uninstall_package(package: str) -> tuple[bool, str]:
-    """Uninstall an APT package via pkexec."""
-    if not _PKG_RE.fullmatch(package):
+def uninstall_package(package: str, source: str = "apt") -> tuple[bool, str]:
+    """Uninstall a package from the specified Linux package manager."""
+    if not _PKG_RE.fullmatch(package) or ".." in package:
         return False, f"Invalid package name: {package}"
-    if not shutil.which("pkexec"):
-        return False, "pkexec not found."
+    spec = _PACKAGE_SOURCES.get(source.lower())
+    if not spec:
+        return False, f"Unsupported package source: {source}"
+    cmd_prefix = spec[2]
+    if not shutil.which(cmd_prefix[0]):
+        return False, f"{cmd_prefix[0]} not found."
     try:
         r = subprocess.run(
-            ["pkexec", "apt-get", "remove", "-y", package],
+            [*cmd_prefix, package],
             capture_output=True, text=True, timeout=180, check=False,
         )
         if r.returncode == 0:
-            return True, f"Uninstalled {package}."
+            return True, f"Uninstalled {package} ({source})."
         return False, r.stderr.strip() or f"Failed to uninstall {package}."
     except (OSError, subprocess.TimeoutExpired) as err:
         return False, str(err)

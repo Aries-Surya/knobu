@@ -4,6 +4,7 @@ from knobu.modules.hotkey_tools import HotkeyToolModule
 from knobu.modules.powertools.cleaner import (
     CleanupTarget,
     PackageInfo,
+    available_package_sources,
     clean_target,
     format_bytes,
     list_installed_packages,
@@ -35,6 +36,7 @@ __all__ = [
     "kill_process",
     "CleanupTarget",
     "PackageInfo",
+    "available_package_sources",
     "format_bytes",
     "scan_cleanup_targets",
     "clean_target",
