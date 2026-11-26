@@ -22,6 +22,32 @@ class ConfigTests(unittest.TestCase):
                                         {"fingers": 3, "enabled": True})
         self.assertEqual(merged, {"fingers": 4, "enabled": True})
 
+    def test_json_backup_and_restore(self):
+        sample = {
+            "touchpad": {"enabled": True, "swipe3_up": "volume_up"},
+            "awake": {"enabled": True, "mode": "indefinite"},
+            "general": {"bypass": False},
+        }
+        with tempfile.TemporaryDirectory() as d:
+            cfg_path = Path(d) / "config.toml"
+            backup_path = Path(d) / "backup.json"
+            config.save(sample, cfg_path)
+
+            # Test backup export
+            with unittest.mock.patch("knobu.config.config_path", return_value=cfg_path):
+                out = config.export_json(backup_path)
+                self.assertEqual(out, backup_path)
+                self.assertTrue(backup_path.exists())
+
+                # Clear config
+                config.save({}, cfg_path)
+                self.assertEqual(config.load(cfg_path), {})
+
+                # Test restore import
+                restored = config.import_json(backup_path)
+                self.assertEqual(restored, sample)
+                self.assertEqual(config.load(cfg_path), sample)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -645,6 +645,65 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     bypass_group.add(restore_row)
     page.add(bypass_group)
 
+    backup_group = Adw.PreferencesGroup(
+        title="Configuration Backup & Restore",
+        description="Export all module settings, shortcuts, and customizations to JSON or restore from a backup.",
+    )
+    backup_status = Adw.ActionRow(
+        use_markup=False,
+        title="Backup & Restore",
+        subtitle="Saved to ~/.config/knobu/knobu-backup.json or custom file",
+    )
+
+    backup_btn = Gtk.Button(
+        icon_name="document-save-symbolic",
+        tooltip_text="Export Backup (JSON)",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+    restore_btn = Gtk.Button(
+        icon_name="document-open-symbolic",
+        tooltip_text="Restore from JSON Backup",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+
+    def on_export_backup(_b):
+        dlg = Gtk.FileDialog(title="Save Configuration Backup", initial_name="knobu-backup.json")
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.save_finish(res)
+                if f:
+                    out = config.export_json(Path(f.get_path()))
+                    backup_status.set_subtitle(f"Exported to {out.name}")
+            except Exception as err:
+                backup_status.set_subtitle(f"Export failed: {err}")
+        dlg.save(parent, None, cb)
+
+    def on_import_backup(_b):
+        dlg = Gtk.FileDialog(title="Select JSON Backup to Restore")
+        parent = page.get_root()
+        def cb(d, res):
+            try:
+                f = d.open_finish(res)
+                if f:
+                    src = Path(f.get_path())
+                    new_data = config.import_json(src)
+                    store.data = new_data
+                    service.reload()
+                    backup_status.set_subtitle(f"Successfully restored from {src.name}")
+            except Exception as err:
+                backup_status.set_subtitle(f"Restore failed: {err}")
+        dlg.open(parent, None, cb)
+
+    backup_btn.connect("clicked", on_export_backup)
+    restore_btn.connect("clicked", on_import_backup)
+    backup_status.add_suffix(backup_btn)
+    backup_status.add_suffix(restore_btn)
+    backup_group.add(backup_status)
+    page.add(backup_group)
+
     about = Adw.PreferencesGroup(title="About")
     about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),
                          "Version, credits and license"))

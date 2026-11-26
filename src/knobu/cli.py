@@ -87,6 +87,10 @@ def main() -> None:
     p_bp.add_argument("state", nargs="?", default="status", choices=["on", "off", "toggle", "status"],
                       help="on | off | toggle | status (default: status)")
     sub.add_parser("restore-os-shortcuts", help="restore default OS shortcuts overridden by Knobu (GNOME / KDE)")
+    p_backup = sub.add_parser("backup", help="export all Knobu configurations to a JSON backup file")
+    p_backup.add_argument("file", nargs="?", default=None, help="destination JSON path (default: ~/.config/knobu/knobu-backup.json)")
+    p_restore = sub.add_parser("restore", help="restore Knobu configurations from a JSON backup file")
+    p_restore.add_argument("file", help="path to source JSON backup file")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -153,6 +157,26 @@ def main() -> None:
         from knobu.modules.commandbar.os_shortcuts import restore_os_shortcuts
         restored = restore_os_shortcuts()
         print("Restored original OS shortcuts." if restored else "No overridden OS shortcuts to restore.")
+    elif args.command == "backup":
+        from pathlib import Path
+        from knobu import config
+        target = Path(args.file).resolve() if args.file else None
+        out = config.export_json(target)
+        print(f"Configuration backed up successfully to: {out}")
+    elif args.command == "restore":
+        from pathlib import Path
+        from knobu import config, service
+        src = Path(args.file).resolve()
+        if not src.exists():
+            print(f"Error: backup file not found: {src}", file=sys.stderr)
+            sys.exit(1)
+        try:
+            config.import_json(src)
+            service.reload()
+            print(f"Configuration successfully restored from: {src}")
+        except Exception as err:
+            print(f"Failed to restore configuration: {err}", file=sys.stderr)
+            sys.exit(1)
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

@@ -32,6 +32,26 @@ def save(data: dict, path: Path | None = None) -> None:
     tmp.replace(path)  # atomic, so the daemon never reads a half-written file
 
 
+def export_json(dest_path: Path | None = None) -> Path:
+    """Export current configuration as a JSON backup file."""
+    if dest_path is None:
+        dest_path = config_path().parent / "knobu-backup.json"
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    data = load()
+    dest_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    return dest_path
+
+
+def import_json(source_path: Path) -> dict:
+    """Restore configuration from a JSON backup file and save to config.toml."""
+    text = source_path.read_text(encoding="utf-8")
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError("Invalid backup format: root must be a JSON object")
+    save(data)
+    return data
+
+
 def module_settings(data: dict, module_id: str, defaults: dict) -> dict:
     return {**defaults, **data.get(module_id, {})}
 
