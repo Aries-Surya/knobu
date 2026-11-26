@@ -14,8 +14,9 @@ import evdev
 from evdev import ecodes as e
 
 from knobu.modules.base import Module
-from knobu.system import mice, permissions
+from knobu.system import hotkeys, keys, launch, mice, permissions
 from knobu.system.debounce import DebounceFilter
+from knobu.ui.pointer_fx import ShakeDetector, sync_gnome_locate_pointer
 
 RESCAN_SECONDS = 3.0
 
@@ -76,21 +77,43 @@ class MouseModule(Module):
         "scroll_multiplier": 1.0,
         "mouse_debounce": False,
         "mouse_debounce_ms": 40,
+        "find_my_mouse": False,
+        "find_my_mouse_hotkey": "super+alt+f",
+        "mouse_shake_trigger": True,
     }
 
     def run(self, stop: threading.Event) -> None:
         if bool(self.settings.get("bypass", False)):
+            sync_gnome_locate_pointer(False)
             self.log.info("mouse utilities bypassed by user")
             return
+
+        find_my_mouse = bool(self.settings.get("find_my_mouse", False))
+        sync_gnome_locate_pointer(find_my_mouse)
 
         invert_wheel = bool(self.settings.get("invert_wheel", False))
         invert_hwheel = bool(self.settings.get("invert_hwheel", False))
         scroll_multiplier = float(self.settings.get("scroll_multiplier", 1.0))
         mouse_debounce = bool(self.settings.get("mouse_debounce", False))
         debounce_ms = float(self.settings.get("mouse_debounce_ms", 40))
+        shake_enabled = find_my_mouse and bool(self.settings.get("mouse_shake_trigger", True))
 
-        has_work = invert_wheel or invert_hwheel or (scroll_multiplier != 1.0) or mouse_debounce
+        binding = None
+        if find_my_mouse:
+            raw_hk = str(self.settings.get("find_my_mouse_hotkey", "")).strip()
+            if raw_hk:
+                try:
+                    binding = hotkeys.service().register(keys.parse(raw_hk), lambda: launch.knobu("find-mouse"))
+                except ValueError as err:
+                    self.log.warning("bad find_my_mouse_hotkey %s: %s", raw_hk, err)
+
+        has_work = invert_wheel or invert_hwheel or (scroll_multiplier != 1.0) or mouse_debounce or shake_enabled
         if not has_work:
+            try:
+                stop.wait()
+            finally:
+                if binding:
+                    hotkeys.service().unregister(binding)
             return
 
         if not permissions.can_write_uinput():
@@ -98,6 +121,7 @@ class MouseModule(Module):
             return
 
         debouncer = DebounceFilter(debounce_ms) if mouse_debounce else None
+        shake = ShakeDetector() if shake_enabled else None
         processor = MouseProcessor(
             invert_wheel=invert_wheel,
             invert_hwheel=invert_hwheel,
@@ -138,12 +162,17 @@ class MouseModule(Module):
                         continue
 
                     for ev in events:
+                        if shake and ev.type == e.EV_REL and ev.code == e.REL_X:
+                            if shake.feed(ev.value):
+                                launch.knobu("find-mouse")
                         emitted = processor.process_event(ev)
                         for ev_type, ev_code, ev_val in emitted:
                             ui.write(ev_type, ev_code, ev_val)
                         if emitted:
                             ui.syn()
         finally:
+            if binding:
+                hotkeys.service().unregister(binding)
             for dev in grabbed.values():
                 try:
                     dev.ungrab()

@@ -75,7 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Port Manager**: Inspect active listening TCP/UDP ports via `ss -tulpn` with search filtering and 1-click process termination (plus `knobu ports` CLI).
   - **Hardware Cleaning Mode (`Super+Alt+K` / `knobu cleaning-mode`)**: Fullscreen overlay that grabs physical keyboards, mice, and touchpads via `evdev` for safe wiping, featuring an auto-unlock countdown timer and 2-second `Esc` hold exit.
   - **System Cleaner & Package Uninstaller**: Safe cleanup of user caches (`~/.cache`), thumbnail caches, crash dumps (`/var/crash`), and APT package archives (`apt-get clean`), plus searchable multi-source package uninstallation across APT, Snap, Flatpak, Brew, Pipx, NPM, and Cargo.
-  - **Media Tools (`ffmpeg`)**: Video compression (H.264/AAC MP4), palette-optimized Video-to-GIF conversion, and batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`).
+  - **Media Tools (`ffmpeg`)**: Video compression (H.264/AAC MP4), palette-optimized Video-to-GIF conversion, batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`), and batch image resize presets.
+  - **Environment Variables Manager**: Manage `~/.config/environment.d/90-knobu.conf` with live `systemctl --user set-environment` sync, enable/disable toggles, and read-only session inspector.
+  - **Hosts File Editor**: Visual `/etc/hosts` rule manager with IP/domain validation, enable/disable toggles, automatic backup, and `pkexec` save.
+  - **Screen Ruler & File Locksmith**: On-screen pixel measurement tool (`Super+Shift+M` / `knobu screen-ruler`) with clipboard copy, and `/proc/*/fd` open-handle inspector with 1-click process termination.
+  - **Mouse Pointer Locator (`Super+Alt+F` / Shake)**: Find My Mouse spotlight overlay (`knobu find-mouse`) with rapid mouse-shake detection and GNOME `locate-pointer` sync.
 
 ### Added
 - **Touchpad Gestures Upgrade (`src/knobu/modules/touchpad/`)**:

@@ -4,15 +4,17 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 1: Top Bar HUD & Status Tray 
+## Milestone 1: Top Bar HUD, Notifications & Status Tray 🔔
 
 *Inspired by Vorssaint Dynamic Island & Menu Bar Status Controller*
 
-- [ ] **Top Bar Dynamic Island**: Floating top-bar capsule that expands for incoming desktop notifications.
-- [ ] **D-Bus Notification Monitoring**: Non-intrusive eavesdropping on `org.freedesktop.Notifications`.
-- [ ] **Notification Drawer**: Expandable card view of recent notifications with timestamps, open actions, and "Clear All".
-- [ ] **Top Bar Status Tray**: Native `org.kde.StatusNotifierItem` provider for GNOME AppIndicator and KDE Plasma tray with dynamic unread and Awake badges.
-- [ ] **CI/CD Pipeline**: Automated Debian package build (`.deb`), automated testing, and GitHub release deployment.
+- [ ] **Top Bar Status Tray & Configuration Dropdown**:
+  - Native `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` provider over `Gio.DBus` (works on Ubuntu GNOME AppIndicator and KDE Plasma tray with zero extra dependencies).
+  - Left/right-clicking the tray icon opens a live dropdown menu with service status, Master Bypass toggle, Awake presets, Cleaning Mode trigger, direct launchers (Command Bar, Clipboard, Always on Top, Power Tools), recent notifications summary, and Open Settings / Quit.
+- [ ] **Mac-Style Notification HUD & Dynamic Island**:
+  - Non-intrusive D-Bus eavesdropping on `org.freedesktop.Notifications` to capture incoming desktop notifications.
+  - Compact floating top-bar notification capsule + expandable **Notification Drawer** inside the tray/HUD with timestamps, app icon, quick actions, Do Not Disturb toggle, and "Clear All".
+- [X] **CI/CD Pipeline**: Automated Debian package build (`.deb`), automated testing, and GitHub release deployment.
 
 ---
 
@@ -70,18 +72,23 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 5: Window Snapping & Layouts (FancyZones) 🪟
+## Milestone 5: Window Management — FancyZones & Always on Top 🪟
 
-*Inspired by Vorssaint WindowLayout & PowerToys FancyZones*
+*Inspired by Vorssaint WindowLayout, PowerToys FancyZones & PowerToys Always on Top*
 
-- [ ] **Custom Zone Grids**:
-  - 2-column, 3-column, 2x2 grid, and priority-center layout presets.
-  - KWin D-Bus integration for KDE Plasma and Mutter/XDG integration for GNOME.
+- [ ] **Unified Desktop Window Bridge**:
+  - KWin D-Bus scripting backend for KDE Plasma 6, bundled user GNOME Shell bridge extension (`~/.local/share/gnome-shell/extensions/`) + Mutter keybinding integration for GNOME Wayland, and `wmctrl` / EWMH backend for X11.
+- [ ] **Always on Top (`Super+Ctrl+T`)**:
+  - Pin or unpin the active window above all other windows (`keepAbove` / `_NET_WM_STATE_ABOVE`) from a global `evdev` shortcut.
+  - Optional colored pin highlight border indicator, subtle audio chime, and excluded-apps list.
+- [ ] **Custom Zone Grids (FancyZones)**:
+  - 2-column, 3-column, 2x2 grid, priority-grid, and custom layout presets with configurable zone padding/gaps.
+  - Interactive visual Layout Editor overlay (`Super+Shift+Grave`).
 - [ ] **Zone Snapping**:
-  - Snap active windows into defined zones using modifier keys + drag or keyboard shortcuts (`Super+Arrow`).
-  - Multi-monitor window movement and workspace preservation.
+  - Snap active windows into defined zones via modifier + drag (Shift/Ctrl drag) or keyboard shortcuts (`Super+Left/Right/Up/Down` & zone indices).
+  - Multi-monitor zone preservation and per-workspace layout memory.
 - [ ] **Window Maximize**:
-  - Maximize window to fill screen without fullscreen workspace displacement.
+  - Maximize window to fill active screen area cleanly without fullscreen workspace displacement.
 
 ---
 
@@ -126,3 +133,21 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
   - Safe cleanup of user caches (`~/.cache`), crash dumps, and package manager residue (`apt clean`).
 - [X] **Media Tools**:
   - Quick local video compression, GIF creation, and batch image format conversion via `ffmpeg`.
+
+---
+
+## Milestone 9: Developer PowerToys & Pointer Utilities 🎯 ✅
+
+*Inspired by Microsoft PowerToys Environment Variables, Mouse Utilities, Hosts File Editor, Screen Ruler & File Locksmith*
+
+- [X] **Environment Variables Manager**:
+  - Visual editor for user environment variables persisted via XDG/systemd (`~/.config/environment.d/90-knobu.conf`) and synced live into active Wayland/X11 sessions (`systemctl --user set-environment` / `dbus-update-activation-environment`).
+  - Toggleable variable profiles, live read-only view of inherited System variables, and `PATH` segment helpers.
+- [X] **Mouse Highlighter & Find My Mouse**:
+  - **Find My Mouse (`Super+Alt+F` / Shake)**: Shake mouse or trigger spotlight overlay (`knobu find-mouse`) plus synced GNOME `locate-pointer` Ctrl locator ring.
+- [X] **Hosts File Editor**:
+  - Safe visual `/etc/hosts` editor to add, filter, and toggle domain/IP entries on or off, saving via `pkexec` with automatic backup.
+- [X] **Screen Ruler & File Locksmith**:
+  - **Screen Ruler (`Super+Shift+M`)**: Capture silent screenshot (`capture.py`) and measure pixel distances, spacing guides, and bounding boxes with copy-to-clipboard.
+  - **File Locksmith**: Inspect processes holding open file descriptors on any chosen file or directory (`/proc/*/fd`) with 1-click process termination.
+  - **Image Resizer**: Batch scale presets (`Small`, `Medium`, `Large`, `50%`) integrated into Media Tools.

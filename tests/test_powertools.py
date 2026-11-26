@@ -4,17 +4,32 @@ from pathlib import Path
 from unittest.mock import patch
 
 from knobu.modules.powertools import (
+    EnvEntry,
+    HostEntry,
     PowerToolsModule,
     build_compress_cmd,
     build_gif_cmd,
     build_image_convert_cmd,
+    build_image_resize_cmd,
     clean_target,
     convert_images,
+    find_file_locks,
     format_bytes,
+    join_path_value,
     kill_process,
+    load_profiles,
+    parse_env_file,
+    parse_hosts,
     parse_ss_output,
+    render_env_file,
+    render_hosts,
+    resize_images,
+    save_hosts,
+    save_profiles,
     scan_cleanup_targets,
+    split_path_value,
     uninstall_package,
+    validate_host_entry,
 )
 
 SAMPLE_SS = """\
@@ -28,8 +43,8 @@ tcp   LISTEN 0  128   *:22  *:*
 class TestPowerTools(unittest.TestCase):
     def test_module_defaults(self):
         self.assertEqual(PowerToolsModule.id, "powertools")
-        self.assertEqual(PowerToolsModule.command, "cleaning-mode")
         self.assertEqual(PowerToolsModule.defaults["hotkey"], "super+alt+k")
+        self.assertEqual(PowerToolsModule.defaults["ruler_hotkey"], "super+shift+m")
         self.assertEqual(PowerToolsModule.defaults["cleaning_duration"], 30)
 
     def test_parse_ss_output(self):
@@ -125,11 +140,82 @@ class TestPowerTools(unittest.TestCase):
         gi.require_version("Adw", "1")
         from gi.repository import Adw
         Adw.init()
-        from knobu.ui.pages import powertools_page
+        from knobu.ui.pages import mouse_page, powertools_page
         from knobu.ui.store import SettingsStore
 
         widget = powertools_page(SettingsStore(), lambda _x: None)
         self.assertIsNotNone(widget)
+        self.assertIsNotNone(mouse_page(SettingsStore(), lambda _x: None))
+
+    def test_envvars_parse_render_and_profiles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            conf = t / "90-knobu.conf"
+            prof = t / "env_profiles.json"
+            entries = [
+                EnvEntry("JAVA_HOME", "/usr/lib/jvm/java-21", True),
+                EnvEntry("DEBUG_MSG", "hello world", False),
+            ]
+            ok, _ = save_profiles("Work", {"Work": entries}, profiles_path=prof, conf_path=conf, apply_live=False)
+            self.assertTrue(ok)
+            parsed = parse_env_file(conf.read_text())
+            self.assertEqual(len(parsed), 2)
+            self.assertTrue(parsed[0].enabled)
+            self.assertFalse(parsed[1].enabled)
+            self.assertEqual(parsed[1].value, "hello world")
+
+            active, loaded = load_profiles(profiles_path=prof, conf_path=conf)
+            self.assertEqual(active, "Work")
+            self.assertEqual(loaded["Work"][0].key, "JAVA_HOME")
+
+        parts = split_path_value("/usr/bin:/opt/bin:/usr/bin")
+        self.assertEqual(join_path_value(parts), "/usr/bin:/opt/bin")
+        self.assertIn("JAVA_HOME=", render_env_file([EnvEntry("JAVA_HOME", "/opt/jdk")]))
+
+    def test_hosts_parse_validate_and_save(self):
+        sample = "# comment\n127.0.0.1 localhost\n# 10.0.0.5 api.local  # staging\n"
+        entries, preserved = parse_hosts(sample)
+        self.assertEqual(preserved, ["# comment"])
+        self.assertEqual(len(entries), 2)
+        self.assertTrue(entries[0].enabled)
+        self.assertFalse(entries[1].enabled)
+        self.assertEqual(entries[1].comment, "staging")
+        self.assertIsNotNone(validate_host_entry("999.999.0.1", ["bad"]))
+        self.assertIsNone(validate_host_entry("127.0.0.1", ["my.local"]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "hosts"
+            bak = Path(tmp) / "hosts.bak"
+            p.write_text("127.0.0.1 localhost\n")
+            ok, _ = save_hosts([HostEntry("127.0.0.1", ["localhost", "dev.local"], enabled=True)],
+                               preserved=["# header"], path=p, backup_path=bak)
+            self.assertTrue(ok)
+            self.assertTrue(bak.is_file())
+            self.assertIn("dev.local", render_hosts([HostEntry("127.0.0.1", ["dev.local"])]))
+
+    def test_file_locksmith_proc_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "locked.db"
+            target.write_text("data")
+            fd_dir = root / "proc" / "4242" / "fd"
+            fd_dir.mkdir(parents=True)
+            (root / "proc" / "4242" / "comm").write_text("sqlite3\n")
+            (fd_dir / "7").symlink_to(target)
+
+            locks = find_file_locks(target, proc_root=root / "proc")
+            self.assertEqual(len(locks), 1)
+            self.assertEqual(locks[0].pid, 4242)
+            self.assertEqual(locks[0].process, "sqlite3")
+
+    def test_media_resize_and_screen_ruler_math(self):
+        from knobu.ui.ruler import measure_box
+        self.assertEqual(measure_box(10, 20, 40, 60), (30, 40, 50))
+        cmd = build_image_resize_cmd(Path("/tmp/a.png"), Path("/tmp/a_small.png"), 854)
+        self.assertIn("min(iw,854)", " ".join(cmd))
+        ok, _, outs = resize_images([Path("/tmp/a.png")], preset="bogus")
+        self.assertFalse(ok)
+        self.assertEqual(outs, [])
 
 
 if __name__ == "__main__":

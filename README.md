@@ -133,6 +133,7 @@ Configure mouse behavior independently of touchpad desktop settings:
 - **Independent Wheel Inversion**: Reverse mouse wheel direction without altering the touchpad scrolling direction.
 - **Smooth Scrolling & Speed Multiplier**: Adjust wheel scroll speed multiplier (0.25x to 5.0x).
 - **Hardware Debounce Filter**: Suppress accidental double-clicks caused by worn mouse microswitches.
+- **Find My Mouse (`Super+Alt+F` / Shake)**: Syncs GNOME `Ctrl` pointer-locator ring and launches a fullscreen spotlight overlay on rapid mouse shake or shortcut.
 
 ### Power Tools & System Maintenance
 
@@ -140,8 +141,12 @@ Everyday developer and maintenance utilities built into Knobu:
 
 - **Port Manager**: Inspect listening TCP/UDP ports (`ss -tulpn`), filter by port or process name, and terminate stuck processes in one click.
 - **Hardware Cleaning Mode (`Super+Alt+K`)**: Fullscreen dark overlay that exclusively locks keyboards, mice, and touchpads via `evdev` so you can wipe hardware safely; hold `Esc` for 2 seconds or wait for the countdown timer to unlock.
+- **Screen Ruler (`Super+Shift+M`)**: Measure pixel dimensions (`W × H px`) and diagonal spacing across monitors and copy results to clipboard.
 - **System Cleaner & Uninstaller**: Measure and clean `~/.cache`, thumbnail previews, crash dumps, and APT cache (`apt-get clean`), plus search and remove installed packages across **APT, Snap, Flatpak, Brew, Pipx, NPM, and Cargo**.
-- **Media Tools (`ffmpeg`)**: Local H.264/AAC MP4 compression, two-pass Lanczos GIF conversion, and batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`).
+- **Environment Variables Manager**: Manage `~/.config/environment.d/90-knobu.conf` with live `systemctl --user set-environment` syncing and read-only session inspector.
+- **Hosts File Editor**: Add, enable/disable, and save `/etc/hosts` entries safely with automatic backup.
+- **File Locksmith**: Inspect processes holding open `/proc/*/fd` handles on any file and terminate locks in one click.
+- **Media Tools (`ffmpeg`)**: Local H.264/AAC MP4 compression, two-pass Lanczos GIF conversion, batch image format conversion (`webp`, `png`, `jpg`, `avif`, `bmp`), and batch image resizing presets.
 
 ### Awake
 
@@ -288,6 +293,8 @@ python3 -m venv --system-site-packages .venv
 | `knobu command-bar` (or `run`) | Open the floating Command Bar launcher |
 | `knobu clipboard` | Open the Clipboard History palette |
 | `knobu cleaning-mode` | Lock keyboard, mouse, and touchpad inputs for safe hardware cleaning |
+| `knobu screen-ruler` | Measure pixel distances and bounding boxes on screen |
+| `knobu find-mouse` | Spotlight cursor location on screen |
 | `knobu ports` | Print listening TCP/UDP ports and PIDs in the terminal |
 | `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
 | `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |

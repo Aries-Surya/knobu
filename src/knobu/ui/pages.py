@@ -468,6 +468,21 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                            "Clicks released and re-pressed faster than this window are suppressed", 10, 150, 5))
     page.add(deb_group)
 
+    # 3. Pointer Locator (Find My Mouse)
+    ptr_group = Adw.PreferencesGroup(
+        title="Pointer Locator (Find My Mouse)",
+        description="Locate your cursor instantly with GNOME Ctrl ring or a fullscreen spotlight.",
+    )
+    ptr_group.add(switch_row(store, mid, "find_my_mouse", "Enable Find My Mouse",
+                             "Syncs GNOME Ctrl cursor-locator ring and enables mouse-shake spotlight"))
+    ptr_group.add(switch_row(store, mid, "mouse_shake_trigger", "Trigger Spotlight on Shake",
+                             "Rapidly shake the mouse side-to-side to launch Find My Mouse spotlight"))
+    ptr_group.add(shortcut_row(store, mid, "find_my_mouse_hotkey", "Spotlight Shortcut",
+                               "Global shortcut to summon Find My Mouse spotlight"))
+    ptr_group.add(button_row("Try it now", "Spotlight Cursor", lambda: launch.knobu("find-mouse"),
+                             "Opens the spotlight overlay around your pointer"))
+    page.add(ptr_group)
+
     return page
 
 
@@ -766,17 +781,29 @@ def commandbar_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     from knobu.modules.powertools import (
         IMAGE_FORMATS,
+        IMAGE_RESIZE_PRESETS,
+        EnvEntry,
+        HostEntry,
         available_package_sources,
         clean_target,
         compress_video,
         convert_images,
         ffmpeg_available,
+        find_file_locks,
         format_bytes,
+        is_valid_key,
         kill_process,
         list_installed_packages,
         list_listening_ports,
+        load_hosts,
+        load_profiles,
+        resize_images,
+        save_hosts,
+        save_profiles,
         scan_cleanup_targets,
+        system_env_snapshot,
         uninstall_package,
+        validate_host_entry,
         video_to_gif,
     )
 
@@ -808,6 +835,11 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     clean_mode.add(button_row("Hardware Lock", "Start Cleaning Mode",
                               lambda: launch.knobu("cleaning-mode"),
                               "Hold Esc for 2 seconds or wait for countdown to exit"))
+    clean_mode.add(shortcut_row(store, mid, "ruler_hotkey", "Screen Ruler Shortcut",
+                                "Global shortcut to measure pixel widths, heights, and diagonals"))
+    clean_mode.add(button_row("Screen Ruler", "Measure Screen",
+                              lambda: launch.knobu("screen-ruler"),
+                              "Drag anywhere on screen to measure and copy pixel dimensions"))
     page.add(clean_mode)
 
     # 2. Port Manager
@@ -1017,6 +1049,17 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                    lambda res: media_status.set_subtitle(res[1]))
         pick_multiple("Select Images to Convert", start)
 
+    resize_row = Adw.ComboRow(use_markup=False, title="Image Resize Preset",
+                              model=Gtk.StringList.new([lbl for _, lbl, _ in IMAGE_RESIZE_PRESETS]))
+
+    def on_resize_images() -> None:
+        preset = IMAGE_RESIZE_PRESETS[resize_row.get_selected()][0]
+        def start(paths: list[Path]):
+            media_status.set_subtitle(f"Resizing {len(paths)} image(s) ({preset})...")
+            run_bg(lambda: resize_images(paths, preset=preset),
+                   lambda res: media_status.set_subtitle(res[1]))
+        pick_multiple("Select Images to Resize", start)
+
     media_group.add(button_row("Compress Video", "Choose Video", on_compress_video,
                                "Re-encodes to fast-start H.264/AAC MP4 beside source file"))
     media_group.add(button_row("Video to GIF", "Choose Video", on_make_gif,
@@ -1024,8 +1067,189 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     media_group.add(fmt_row)
     media_group.add(button_row("Batch Convert Images", "Choose Images", on_convert_images,
                                "Convert multiple PNG/JPG/WebP/AVIF files at once"))
+    media_group.add(resize_row)
+    media_group.add(button_row("Batch Resize Images", "Choose Images", on_resize_images,
+                               "Scale batches of images to preset dimensions"))
     media_group.add(media_status)
     page.add(media_group)
+
+    # 5. Environment Variables Manager
+    env_active, env_profiles = load_profiles()
+    env_group = Adw.PreferencesGroup(
+        title="Environment Variables",
+        description="Manage ~/.config/environment.d/90-knobu.conf with live systemd user session sync.",
+    )
+    env_status = Adw.ActionRow(use_markup=False, title="Active Profile", subtitle=f"Profile: {env_active}")
+    env_key_in = Adw.EntryRow(title="Variable Name (e.g. JAVA_HOME or PATH)")
+    env_val_in = Adw.EntryRow(title="Value")
+    env_add_btn = Gtk.Button(label="Add / Update", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    env_val_in.add_suffix(env_add_btn)
+    env_sync_btn = Gtk.Button(label="Save and Sync", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    env_status.add_suffix(env_sync_btn)
+    env_group.add(env_status)
+    env_group.add(env_key_in)
+    env_group.add(env_val_in)
+    env_rows: list[Gtk.Widget] = []
+
+    def rebuild_env() -> None:
+        for r in env_rows:
+            env_group.remove(r)
+        env_rows.clear()
+        entries = env_profiles.get(env_active, [])
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No custom user variables configured")
+            env_group.add(empty)
+            env_rows.append(empty)
+        else:
+            for item in entries:
+                r = Adw.SwitchRow(use_markup=False, title=item.key, subtitle=item.value)
+                r.set_active(item.enabled)
+                def on_tgl(sw, _p, entry=item):
+                    entry.enabled = sw.get_active()
+                r.connect("notify::active", on_tgl)
+                del_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                                     css_classes=["flat", "circular"], tooltip_text="Remove variable")
+                def on_del(_b, entry=item):
+                    env_profiles[env_active].remove(entry)
+                    rebuild_env()
+                del_btn.connect("clicked", on_del)
+                r.add_suffix(del_btn)
+                env_group.add(r)
+                env_rows.append(r)
+
+        sys_exp = Adw.ExpanderRow(use_markup=False, title="Inherited Session Variables (Read-only)")
+        for sk, sv in system_env_snapshot()[:20]:
+            sys_exp.add_row(Adw.ActionRow(use_markup=False, title=sk, subtitle=sv))
+        env_group.add(sys_exp)
+        env_rows.append(sys_exp)
+
+    def on_add_env(*_args) -> None:
+        k = env_key_in.get_text().strip()
+        v = env_val_in.get_text().strip()
+        if not is_valid_key(k):
+            env_status.set_subtitle(f"Invalid variable name: {k!r}")
+            return
+        lst = env_profiles.setdefault(env_active, [])
+        for existing in lst:
+            if existing.key == k:
+                existing.value = v
+                existing.enabled = True
+                break
+        else:
+            lst.append(EnvEntry(key=k, value=v, enabled=True))
+        env_key_in.set_text("")
+        env_val_in.set_text("")
+        rebuild_env()
+
+    def on_sync_env(_b) -> None:
+        env_status.set_subtitle("Syncing environment...")
+        run_bg(lambda: save_profiles(env_active, env_profiles, apply_live=True),
+               lambda res: env_status.set_subtitle(res[1]))
+
+    env_add_btn.connect("clicked", on_add_env)
+    env_sync_btn.connect("clicked", on_sync_env)
+    rebuild_env()
+    page.add(env_group)
+
+    # 6. Hosts File Editor
+    host_entries, host_preserved = load_hosts()
+    hosts_group = Adw.PreferencesGroup(
+        title="Hosts File Editor",
+        description="Toggle or add /etc/hosts entries safely with automatic backup.",
+    )
+    hosts_status = Adw.ActionRow(use_markup=False, title="/etc/hosts", subtitle=f"{len(host_entries)} entries loaded")
+    hosts_save_btn = Gtk.Button(label="Save /etc/hosts", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    hosts_status.add_suffix(hosts_save_btn)
+    hosts_group.add(hosts_status)
+
+    h_ip_in = Adw.EntryRow(title="IP Address (e.g. 127.0.0.1)")
+    h_name_in = Adw.EntryRow(title="Hostname(s) (e.g. api.local)")
+    h_add_btn = Gtk.Button(label="Add", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    h_name_in.add_suffix(h_add_btn)
+    hosts_group.add(h_ip_in)
+    hosts_group.add(h_name_in)
+    host_rows: list[Gtk.Widget] = []
+
+    def rebuild_hosts() -> None:
+        for r in host_rows:
+            hosts_group.remove(r)
+        host_rows.clear()
+        for entry in host_entries[:25]:
+            sub = f"{' '.join(entry.hosts)}{(' · #' + entry.comment) if entry.comment else ''}"
+            r = Adw.SwitchRow(use_markup=False, title=entry.ip, subtitle=sub)
+            r.set_active(entry.enabled)
+            def on_h_tgl(sw, _p, ent=entry):
+                ent.enabled = sw.get_active()
+            r.connect("notify::active", on_h_tgl)
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                               css_classes=["flat", "circular"], tooltip_text="Delete host entry")
+            def on_h_del(_b, ent=entry):
+                host_entries.remove(ent)
+                rebuild_hosts()
+            del_b.connect("clicked", on_h_del)
+            r.add_suffix(del_b)
+            hosts_group.add(r)
+            host_rows.append(r)
+
+    def on_add_host(*_args) -> None:
+        ip = h_ip_in.get_text().strip()
+        names = h_name_in.get_text().split()
+        err = validate_host_entry(ip, names)
+        if err:
+            hosts_status.set_subtitle(err)
+            return
+        host_entries.append(HostEntry(ip=ip, hosts=names, comment="knobu", enabled=True))
+        h_ip_in.set_text("")
+        h_name_in.set_text("")
+        rebuild_hosts()
+
+    def on_save_hosts(_b) -> None:
+        hosts_status.set_subtitle("Saving /etc/hosts...")
+        run_bg(lambda: save_hosts(host_entries, host_preserved),
+               lambda res: hosts_status.set_subtitle(res[1]))
+
+    h_add_btn.connect("clicked", on_add_host)
+    hosts_save_btn.connect("clicked", on_save_hosts)
+    rebuild_hosts()
+    page.add(hosts_group)
+
+    # 7. File Locksmith
+    lock_group = Adw.PreferencesGroup(
+        title="File Locksmith",
+        description="Find processes holding open handles on a file and terminate them safely.",
+    )
+    lock_status = Adw.ActionRow(use_markup=False, title="Target File", subtitle="Choose a file to inspect open locks")
+    lock_rows: list[Gtk.Widget] = []
+
+    def inspect_locks(target: Path) -> None:
+        for r in lock_rows:
+            lock_group.remove(r)
+        lock_rows.clear()
+        lock_status.set_subtitle(str(target))
+        locks = find_file_locks(target)
+        if not locks:
+            empty = Adw.ActionRow(use_markup=False, title="No locking processes found",
+                                  subtitle="No readable processes hold an open file descriptor to this target")
+            lock_group.add(empty)
+            lock_rows.append(empty)
+            return
+        for lk in locks[:20]:
+            r = Adw.ActionRow(use_markup=False, title=f"{lk.process} (PID {lk.pid})",
+                              subtitle=f"fd {lk.fd} · {lk.path}")
+            k_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER, css_classes=["pill", "destructive-action"])
+            def on_lk_kill(_b, pid=lk.pid, row=r):
+                _b.set_sensitive(False)
+                run_bg(lambda: kill_process(pid), lambda res: (row.set_subtitle(res[1]), inspect_locks(target)))
+            k_btn.connect("clicked", on_lk_kill)
+            r.add_suffix(k_btn)
+            lock_group.add(r)
+            lock_rows.append(r)
+
+    lock_btn = Gtk.Button(label="Check File", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    lock_btn.connect("clicked", lambda _b: pick_single("Select File to Check Locks", inspect_locks))
+    lock_status.add_suffix(lock_btn)
+    lock_group.add(lock_status)
+    page.add(lock_group)
 
     return page
 

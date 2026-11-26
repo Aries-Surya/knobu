@@ -68,6 +68,14 @@ class TestMouse(unittest.TestCase):
         stop = threading.Event()
         m.run(stop)
 
+    def test_shake_detector(self):
+        from knobu.ui.pointer_fx import ShakeDetector
+        det = ShakeDetector(reversals_needed=3, window_sec=1.0, min_dx=10)
+        self.assertFalse(det.feed(20, now=1.0))
+        self.assertFalse(det.feed(-20, now=1.1))
+        self.assertFalse(det.feed(20, now=1.2))
+        self.assertTrue(det.feed(-20, now=1.3))
+
 
 
 if __name__ == "__main__":
