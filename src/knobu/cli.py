@@ -112,6 +112,11 @@ def main() -> None:
     sub.add_parser("automations", help="list configured automation rules")
     p_ra = sub.add_parser("run-automation", help="manually run an automation rule by name or ID")
     p_ra.add_argument("rule", help="rule name or ID")
+    sub.add_parser("cron", help="show local cron service status and list user cron jobs")
+    p_ca = sub.add_parser("cron-add", help="add a new user cron job")
+    p_ca.add_argument("schedule", help="cron schedule (e.g. '0 12 * * *' or '@daily')")
+    p_ca.add_argument("cmd", help="shell command to run")
+    p_ca.add_argument("--comment", default="", help="optional description comment")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -297,6 +302,22 @@ def main() -> None:
             print(f"Automation rule not found: {args.rule}", file=sys.stderr)
             sys.exit(1)
         ok, msg = run_rule_now(target)
+        print(msg)
+        sys.exit(0 if ok else 1)
+    elif args.command == "cron":
+        from knobu.modules.powertools.cron import cron_service_status, list_cron_jobs
+        active, status_msg = cron_service_status()
+        print(f"Cron service: {'running' if active else 'inactive'} ({status_msg})")
+        jobs = list_cron_jobs()
+        if not jobs:
+            print("No user cron jobs configured.")
+        for idx, j in enumerate(jobs, 1):
+            st = "ON " if j.enabled else "OFF"
+            desc = f" # {j.comment}" if j.comment else ""
+            print(f"  {idx}. [{st}] {j.schedule:<15} {j.command}{desc}")
+    elif args.command == "cron-add":
+        from knobu.modules.powertools.cron import add_cron_job
+        ok, msg = add_cron_job(args.schedule, args.cmd, args.comment)
         print(msg)
         sys.exit(0 if ok else 1)
     else:

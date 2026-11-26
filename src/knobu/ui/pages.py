@@ -1536,20 +1536,74 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         net_group.add(sel)
     else:
         net_group.add(aws_row)
+    page.add(net_group)
 
-    # AWS Identity & Verification
+    hist = NotificationHistory()
+    hist_group = Adw.PreferencesGroup(title="Notification Center")
+    hist_row = Adw.ActionRow(use_markup=False, title="Recorded Notifications",
+                             subtitle=f"{hist.count()} notification(s) saved")
+    open_btn = Gtk.Button(label="Open Drawer", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    open_btn.connect("clicked", lambda _b: launch.knobu("notifications"))
+    hist_row.add_suffix(open_btn)
+    hist_group.add(hist_row)
+    page.add(hist_group)
+
+    return page
+
+
+def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.powertools.aws_cli import get_active_aws_profile, load_aws_profiles, set_active_aws_profile
+    from knobu.modules.powertools.cron import (
+        add_cron_job,
+        cron_service_status,
+        list_cron_jobs,
+        remove_cron_job,
+        toggle_cron_job,
+    )
     from knobu.modules.powertools.devops import (
         calculate_cidr,
         get_aws_caller_identity,
         get_docker_containers,
         get_kube_contexts,
-        http_timing_probe,
         inspect_ssl_cert,
         query_dns,
-        stop_docker_container,
         switch_kube_context,
-        tcp_ping,
     )
+
+    page = Adw.PreferencesPage()
+
+    hero = Gtk.Box(spacing=18, css_classes=["hero"])
+    hero.append(tile("network-server-symbolic", "large"))
+    text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, valign=Gtk.Align.CENTER, hexpand=True)
+    text.append(Gtk.Label(label="DevOps on Cloud", xalign=0, css_classes=["title-2"]))
+    text.append(Gtk.Label(
+        label="AWS CLI profiles, Kubernetes & Docker contexts, network diagnostics, and local cron jobs.",
+        xalign=0, wrap=True, css_classes=["dim-label", "hero-subtitle"],
+    ))
+    hero.append(text)
+    header = Adw.PreferencesGroup()
+    header.add(hero)
+    page.add(header)
+
+    # 1. AWS CLI & Caller Identity
+    aws_group = Adw.PreferencesGroup(title="AWS CLI and Identity")
+    active_aws = get_active_aws_profile()
+    profiles = load_aws_profiles()
+    aws_row = Adw.ActionRow(use_markup=False, title="Active AWS CLI Profile",
+                            subtitle=f"{active_aws} ({len(profiles)} configured in ~/.aws)")
+    aws_group.add(aws_row)
+    if profiles:
+        names = [p.name for p in profiles]
+        sel = Adw.ComboRow(use_markup=False, title="Switch Active AWS Profile",
+                           model=Gtk.StringList.new(names))
+        if active_aws in names:
+            sel.set_selected(names.index(active_aws))
+        def on_aws_sel(r, _p):
+            chosen = profiles[r.get_selected()]
+            ok, msg = set_active_aws_profile(chosen.name, chosen.region)
+            aws_row.set_subtitle(f"{chosen.name} — {msg}" if ok else msg)
+        sel.connect("notify::selected", on_aws_sel)
+        aws_group.add(sel)
 
     ident_row = Adw.ActionRow(
         use_markup=False,
@@ -1566,51 +1620,39 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         ident_row.set_subtitle("Checking AWS STS...")
         def worker():
             ident = get_aws_caller_identity()
-            if "error" in ident:
-                msg = f"Error: {ident['error']}"
-            else:
-                msg = f"Account {ident.get('Account')} · {ident.get('Arn')}"
+            msg = f"Error: {ident['error']}" if "error" in ident else f"Account {ident.get('Account')} · {ident.get('Arn')}"
             GLib.idle_add(lambda: (ident_row.set_subtitle(msg), False)[1])
         threading.Thread(target=worker, daemon=True).start()
-
     verify_aws_btn.connect("clicked", on_verify_aws)
     ident_row.add_suffix(verify_aws_btn)
-    net_group.add(ident_row)
+    aws_group.add(ident_row)
+    page.add(aws_group)
 
-    # Containers & Kubernetes Context
+    # 2. Containers & Kubernetes Context
+    infra_group = Adw.PreferencesGroup(title="Kubernetes and Containers")
     cur_kube, all_kubes = get_kube_contexts()
     if all_kubes:
-        kube_row = Adw.ComboRow(
-            use_markup=False,
-            title="Active Kubernetes Context",
-            model=Gtk.StringList.new(all_kubes),
-        )
+        kube_row = Adw.ComboRow(use_markup=False, title="Active Kubernetes Context",
+                                model=Gtk.StringList.new(all_kubes))
         if cur_kube in all_kubes:
             kube_row.set_selected(all_kubes.index(cur_kube))
-        def on_kube_switch(r, _p):
-            chosen = all_kubes[r.get_selected()]
-            switch_kube_context(chosen)
-        kube_row.connect("notify::selected", on_kube_switch)
-        net_group.add(kube_row)
+        kube_row.connect("notify::selected", lambda r, _p: switch_kube_context(all_kubes[r.get_selected()]))
+        infra_group.add(kube_row)
     else:
-        net_group.add(Adw.ActionRow(use_markup=False, title="Kubernetes Context", subtitle="No active kubectl contexts configured"))
+        infra_group.add(Adw.ActionRow(use_markup=False, title="Kubernetes Context",
+                                      subtitle="No active kubectl contexts configured"))
 
     conts = get_docker_containers()
-    if conts:
-        docker_sub = f"{len(conts)} container(s) running"
-    else:
-        docker_sub = "Docker daemon idle or no containers active"
-    net_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle=docker_sub))
+    docker_sub = f"{len(conts)} container(s): {', '.join(c.name for c in conts[:4])}" if conts else "No active Docker containers"
+    infra_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle=docker_sub))
+    page.add(infra_group)
 
-    page.add(net_group)
-
-    # Diagnostics Group (DNS, SSL, Port Ping, CIDR)
+    # 3. Network & DevOps Diagnostics
     diag_group = Adw.PreferencesGroup(
         title="Network and DevOps Diagnostics",
-        description="Live DNS query, SSL certificate inspection, TCP ping, and CIDR subnet calculation.",
+        description="Live DNS query, SSL certificate inspection, and CIDR subnet calculation.",
     )
 
-    # DNS Lookup Row
     dns_row = Adw.ActionRow(use_markup=False, title="DNS Lookup", subtitle="Query A, AAAA, CNAME, MX records")
     dns_entry = Gtk.Entry(placeholder_text="domain (e.g. google.com)", valign=Gtk.Align.CENTER, width_request=220)
     dns_btn = Gtk.Button(icon_name="system-search-symbolic", tooltip_text="Query DNS", valign=Gtk.Align.CENTER, css_classes=["flat"])
@@ -1621,11 +1663,7 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         dns_row.set_subtitle("Querying...")
         def worker():
             ok, recs, msg = query_dns(dom, "A")
-            if ok and recs:
-                ans = ", ".join(r.value for r in recs[:3])
-                sub = f"{dom} -> {ans}"
-            else:
-                sub = f"{dom}: {msg}"
+            sub = f"{dom} -> {', '.join(r.value for r in recs[:3])}" if ok and recs else f"{dom}: {msg}"
             GLib.idle_add(lambda: (dns_row.set_subtitle(sub), False)[1])
         threading.Thread(target=worker, daemon=True).start()
     dns_btn.connect("clicked", on_dns)
@@ -1633,7 +1671,6 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     dns_row.add_suffix(dns_btn)
     diag_group.add(dns_row)
 
-    # SSL Inspection Row
     ssl_row = Adw.ActionRow(use_markup=False, title="SSL/TLS Certificate", subtitle="Check certificate expiration and issuer")
     ssl_entry = Gtk.Entry(placeholder_text="host (e.g. github.com)", valign=Gtk.Align.CENTER, width_request=220)
     ssl_btn = Gtk.Button(icon_name="channel-secure-symbolic", tooltip_text="Inspect SSL", valign=Gtk.Align.CENTER, css_classes=["flat"])
@@ -1644,10 +1681,8 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         ssl_row.set_subtitle("Connecting...")
         def worker():
             res = inspect_ssl_cert(host)
-            if res.is_valid:
-                sub = f"{res.issuer} · {res.days_left} day(s) left (Expires: {res.expiry_date})"
-            else:
-                sub = f"Invalid/Error: {res.error or 'Expired'}"
+            sub = (f"{res.issuer} · {res.days_left} day(s) left (Expires: {res.expiry_date})"
+                   if res.is_valid else f"Invalid/Error: {res.error or 'Expired'}")
             GLib.idle_add(lambda: (ssl_row.set_subtitle(sub), False)[1])
         threading.Thread(target=worker, daemon=True).start()
     ssl_btn.connect("clicked", on_ssl)
@@ -1655,7 +1690,6 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     ssl_row.add_suffix(ssl_btn)
     diag_group.add(ssl_row)
 
-    # CIDR Subnet Calculator Row
     cidr_row = Adw.ActionRow(use_markup=False, title="CIDR Subnet Calculator", subtitle="Calculate network mask, broadcast, and usable host capacity")
     cidr_entry = Gtk.Entry(placeholder_text="CIDR (e.g. 10.0.0.0/16)", valign=Gtk.Align.CENTER, width_request=220)
     cidr_btn = Gtk.Button(icon_name="accessories-calculator-symbolic", tooltip_text="Calculate", valign=Gtk.Align.CENTER, css_classes=["flat"])
@@ -1664,27 +1698,75 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         if not c_str:
             return
         ok, res, msg = calculate_cidr(c_str)
-        if ok and res:
-            sub = f"{res.cidr}: {res.usable_hosts:,} usable hosts ({res.first_host} - {res.last_host}) · Netmask {res.netmask}"
-        else:
-            sub = f"Error: {msg}"
+        sub = (f"{res.cidr}: {res.usable_hosts:,} usable hosts ({res.first_host} - {res.last_host}) · Netmask {res.netmask}"
+               if ok and res else f"Error: {msg}")
         cidr_row.set_subtitle(sub)
     cidr_btn.connect("clicked", on_cidr)
     cidr_row.add_suffix(cidr_entry)
     cidr_row.add_suffix(cidr_btn)
     diag_group.add(cidr_row)
-
     page.add(diag_group)
 
-    hist = NotificationHistory()
-    hist_group = Adw.PreferencesGroup(title="Notification Center")
-    hist_row = Adw.ActionRow(use_markup=False, title="Recorded Notifications",
-                             subtitle=f"{hist.count()} notification(s) saved")
-    open_btn = Gtk.Button(label="Open Drawer", valign=Gtk.Align.CENTER, css_classes=["pill"])
-    open_btn.connect("clicked", lambda _b: launch.knobu("notifications"))
-    hist_row.add_suffix(open_btn)
-    hist_group.add(hist_row)
-    page.add(hist_group)
+    # 4. Local Cron Jobs & Scheduler
+    cron_active, cron_msg = cron_service_status()
+    cron_group = Adw.PreferencesGroup(
+        title="Local Cron Jobs and Scheduler",
+        description=f"Cron Daemon: {'Running' if cron_active else 'Inactive'} ({cron_msg})",
+    )
+    cron_sched = Adw.EntryRow(title="Schedule (e.g. 0 12 * * * or @daily)")
+    cron_cmd = Adw.EntryRow(title="Command (e.g. /path/to/backup.sh)")
+    cron_comment = Adw.EntryRow(title="Description (optional)")
+    cron_add_btn = Gtk.Button(label="Add Cron Job", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    cron_comment.add_suffix(cron_add_btn)
+    cron_status = Adw.ActionRow(use_markup=False, title="Crontab Status", subtitle="Ready")
+
+    cron_group.add(cron_sched)
+    cron_group.add(cron_cmd)
+    cron_group.add(cron_comment)
+    cron_group.add(cron_status)
+
+    cron_rows: list[Gtk.Widget] = []
+
+    def rebuild_cron() -> None:
+        for r in cron_rows:
+            cron_group.remove(r)
+        cron_rows.clear()
+        jobs = list_cron_jobs()
+        if not jobs:
+            empty = Adw.ActionRow(use_markup=False, title="No user cron jobs configured",
+                                  subtitle="Add a cron job above to schedule recurring local tasks")
+            cron_group.add(empty)
+            cron_rows.append(empty)
+            return
+        for idx, job in enumerate(jobs):
+            title = f"{job.schedule} — {job.comment}" if job.comment else job.schedule
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=GLib.markup_escape_text(title, -1),
+                subtitle=GLib.markup_escape_text(job.command, -1),
+            )
+            sw = Gtk.Switch(active=job.enabled, valign=Gtk.Align.CENTER, tooltip_text="Enable or pause cron job")
+            sw.connect("notify::active", lambda _s, _p, i=idx: (toggle_cron_job(i), rebuild_cron()))
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                               tooltip_text="Remove cron job", css_classes=["flat"])
+            del_b.connect("clicked", lambda _b, i=idx: (remove_cron_job(i), rebuild_cron()))
+            row.add_suffix(sw)
+            row.add_suffix(del_b)
+            cron_group.add(row)
+            cron_rows.append(row)
+
+    def on_add_cron(_b) -> None:
+        ok, msg = add_cron_job(cron_sched.get_text(), cron_cmd.get_text(), cron_comment.get_text())
+        cron_status.set_subtitle(msg)
+        if ok:
+            cron_sched.set_text("")
+            cron_cmd.set_text("")
+            cron_comment.set_text("")
+            rebuild_cron()
+
+    cron_add_btn.connect("clicked", on_add_cron)
+    rebuild_cron()
+    page.add(cron_group)
 
     return page
 
@@ -1819,6 +1901,7 @@ def automation_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
+    ("devops", "DevOps on Cloud", "network-server-symbolic", devops_page, "top"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
     (MouseModule.id, MouseModule.name, MouseModule.icon, mouse_page, "modules"),
