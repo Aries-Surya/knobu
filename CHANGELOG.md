@@ -5,6 +5,24 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] (2026-11-26)
+
+### Features
+
+* **sound:** implement Per-App Volume Mixer, up to 150% volume boost, Super+Shift+A global mic mute, and Super+Shift+O output device switcher
+* **windows:** implement Always on Top (`Super+Ctrl+T`), FancyZones grid layouts (`2col`, `3col`, `2x2`, `priority`, `left_main`), layout overlay (`knobu fancyzones`), and keyboard zone snapping
+* **sysmon:** real-time hardware resource monitoring (CPU, RAM, network, thermal, battery) and high-load/low-battery health alerts
+* **devops:** dedicated DevOps on Cloud category with local Cron Jobs manager, CIDR subnet calculator, DNS lookup, SSL certificate inspector, active AWS Caller Identity readout, and Docker containers status
+* **automation:** rule-based automation engine ("When [Trigger] -> If [Condition] -> Then [Action]") with Wi-Fi/battery/schedule triggers and execution history logging
+* **powertoys:** extended PowerToys suite with ZoomIt screen annotation overlay, interactive Shortcut Guide (`Super+Shift+?`), Quick Accent picker, Workspaces Launcher, Light Switch auto-theme, and Advanced Paste transforms in Clipboard History
+* **config:** add JSON configuration backup and restore via CLI (`knobu backup` / `knobu restore`) and Settings UI
+
+### Bug Fixes
+
+* **ci:** handle headless test environments gracefully in UI page tests when no display server is available
+* **tray:** replace emojis with standard symbolic icons and add auto-refresh on menu opening
+* **windows:** replace missing `focus-windows` icon with valid standard `focus-windows-symbolic` icon
+
 ## [0.4.0](https://github.com/Aries-Surya/knobu/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 

@@ -34,6 +34,75 @@ Open the Mac-style Notification Center drawer.
 .B ports
 Print listening TCP/UDP ports and processes.
 .TP
+.BR backup " [path]"
+Export all Knobu configurations to a JSON backup file.
+.TP
+.BR restore " path"
+Restore Knobu configurations from a JSON backup file.
+.TP
+.B mic-mute
+Toggle global default microphone mute.
+.TP
+.B audio-switch
+Cycle default audio output device between speakers and headphones.
+.TP
+.B streams
+List active application audio playback streams and volumes.
+.TP
+.B always-on-top
+Pin or unpin the active window above all other windows.
+.TP
+.B fancyzones
+Open the interactive FancyZones layout editor overlay.
+.TP
+.BR snap " zone"
+Snap the active window to a FancyZones zone index (0, 1, 2...).
+.TP
+.B sysmon
+Display live CPU, RAM, thermal, and network metrics.
+.TP
+.BR cidr " subnet"
+Calculate IPv4/IPv6 CIDR network range, netmask, and usable hosts.
+.TP
+.BR dns " domain"
+Query DNS records (A, AAAA, CNAME, MX, TXT) with custom resolver support.
+.TP
+.BR ssl-check " host:port"
+Inspect SSL/TLS certificate expiration days, issuer, and SANs.
+.TP
+.B aws-whoami
+Display active AWS caller identity (Account ID, ARN, UserId).
+.TP
+.B containers
+List Docker containers status and exposed ports.
+.TP
+.B cron
+Show local cron service status and list user cron jobs.
+.TP
+.BR cron-add " <expression> <command>"
+Add a new user cron job with validation.
+.TP
+.B automations
+List configured rule-based automations.
+.TP
+.BR run-automation " id"
+Manually run an automation rule by ID or name.
+.TP
+.B shortcut-guide
+Open the interactive Shortcut Guide overlay.
+.TP
+.B zoomit
+Freeze screen for zoom & pen/arrow/box annotation.
+.TP
+.B quick-accent
+Open the Quick Accent character picker popup.
+.TP
+.BR theme " [dark|light|toggle]"
+Switch or inspect desktop light/dark theme.
+.TP
+.BR workspace " [name]"
+Launch a saved workspace app group or list groups.
+.TP
 .B enable
 Start the background service now and at every login.
 .TP

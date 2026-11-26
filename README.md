@@ -39,7 +39,13 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 |---|---|
 | 🔍 **Command Bar** | Alt+Space floating launcher (PowerToys Run for Linux): search apps, calculate math, run shell commands, paths & web |
 | 🔔 **Top Tray & Notifications** | System tray dropdown showing Wi-Fi/VPN, Private & Public IP (copy), active AWS CLI profile switcher, and Mac-style Notification Center |
-| 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, and tracking URL sanitization |
+| 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, URL sanitization, and Advanced Paste transforms |
+| 🪟 **Window Manager (FancyZones)** | Super+Ctrl+T Always on Top, Super+Shift+` FancyZones layout overlay, and keyboard zone snapping |
+| 🔊 **Sound Suite** | Per-app volume mixer, up to 150% audio boost, Super+Shift+A mic mute, and Super+Shift+O output device cycling |
+| 📊 **System Monitor** | Live CPU (per-core), memory, network, thermal readings, and high-load/low-battery health alerts |
+| ☁️ **DevOps & Cloud** | CIDR subnet calculator, DNS lookup, SSL expiry checker, AWS Caller Identity, Docker containers, and Cron jobs |
+| ⚡ **Automations Engine** | Rule-based automation engine ("When [Trigger] -> If [Condition] -> Then [Action]") with execution history |
+| 🧩 **Extended PowerToys** | ZoomIt (`knobu zoomit`), Shortcut Guide (`Super+Shift+?`), Quick Accent (`knobu quick-accent`), Workspaces Launcher, and Light Switch |
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
 | ☕ **Awake** | Keep the computer awake for a while, without touching power settings |
@@ -293,6 +299,7 @@ python3 -m venv --system-site-packages .venv
 | `knobu extract-text` | Copy text from an area of the screen |
 | `knobu command-bar` (or `run`) | Open the floating Command Bar launcher |
 | `knobu clipboard` | Open the Clipboard History palette |
+| `knobu paste-plain` | Paste current clipboard text stripped of formatting |
 | `knobu cleaning-mode` | Lock keyboard, mouse, and touchpad inputs for safe hardware cleaning |
 | `knobu screen-ruler` | Measure pixel distances and bounding boxes on screen |
 | `knobu find-mouse` | Spotlight cursor location on screen |
@@ -300,6 +307,29 @@ python3 -m venv --system-site-packages .venv
 | `knobu ports` | Print listening TCP/UDP ports and PIDs in the terminal |
 | `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
 | `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |
+| `knobu backup [path]` | Export all configurations to a JSON backup file |
+| `knobu restore <path>` | Restore configurations from a JSON backup file |
+| `knobu mic-mute` | Toggle global default microphone mute |
+| `knobu audio-switch` | Cycle default audio output device (speakers / headphones) |
+| `knobu streams` | List active application audio playback streams and volumes |
+| `knobu always-on-top` | Pin or unpin the active window above all other windows |
+| `knobu fancyzones` | Open interactive FancyZones layout grid overlay |
+| `knobu snap <zone>` | Snap the active window to a FancyZones zone index (0, 1, 2...) |
+| `knobu sysmon` | Output live CPU, memory, thermal, and network metrics |
+| `knobu cidr <subnet>` | Calculate IPv4/IPv6 CIDR network range and usable hosts |
+| `knobu dns <domain>` | Query DNS records (`A`, `AAAA`, `CNAME`, `MX`, `TXT`) |
+| `knobu ssl-check <host:port>` | Inspect SSL/TLS certificate expiry, issuer, and SANs |
+| `knobu aws-whoami` | Display active AWS caller identity (Account ID, ARN, UserId) |
+| `knobu containers` | List Docker containers status and exposed ports |
+| `knobu cron` | Show local cron service status and list user cron jobs |
+| `knobu cron-add "<expr>" "<cmd>"` | Add a new user cron job with syntax validation |
+| `knobu automations` | List configured rule-based automations |
+| `knobu run-automation <id>` | Manually run an automation rule |
+| `knobu shortcut-guide` | Open the interactive Shortcut Guide overlay |
+| `knobu zoomit` | Freeze screen for zoom and pen/arrow/box annotation |
+| `knobu quick-accent` | Open the Quick Accent character picker popup |
+| `knobu theme [dark\|light\|toggle]` | Switch or inspect desktop light/dark theme |
+| `knobu workspace [name]` | Launch a saved workspace app group |
 | `knobu daemon` | Run the background service in the terminal (useful for debugging) |
 
 Settings live in `~/.config/knobu/config.toml`. Service logs:

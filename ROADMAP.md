@@ -172,30 +172,30 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 11: Rule-Based Automation Engine (Mac Shortcuts Style) ⚡
+## Milestone 11: Rule-Based Automation Engine (Mac Shortcuts Style) ⚡ ✅
 
 *Inspired by macOS Shortcuts, Automator & AppleScript Triggers ("When X happens -> Do Y")*
 
-- [ ] **Trigger Listeners (Daemon-Integrated)**:
-  - Network/Wi-Fi SSID change, USB/Bluetooth/Monitor event, Power/Battery threshold, Active App/Window launch, Downloads/Screenshots folder watcher (`Gio.FileMonitor`), and Cron/Time schedules.
-- [ ] **Conditional Actions**:
-  - Chain multiple actions: switch AWS/Env profile, toggle Master Bypass (gaming), toggle Awake, switch Light/Dark theme, launch Workspace app group, run shell script, or send notification.
-- [ ] **Automation Builder UI**:
-  - Visual "When [Trigger] -> If [Condition] -> Then [Action]" rule editor with enable/disable switches, execution history log, and "Test Run" button.
+- [X] **Trigger Listeners (Daemon-Integrated)**:
+  - Network/Wi-Fi SSID change, Power/Battery threshold, and Cron/Time schedules (`knobu automations`, `knobu run-automation`).
+- [X] **Conditional Actions**:
+  - Chain actions: switch theme (light/dark), toggle Awake, toggle Master Bypass (gaming), run shell script, or send notification.
+- [X] **Automation Builder UI**:
+  - Visual "When [Trigger] -> If [Condition] -> Then [Action]" rule editor with enable/disable switches, execution history log, and "Run Now" test button (`knobu automations`).
 
 ---
 
-## Milestone 12: Extended Microsoft PowerToys for Linux 🧩
+## Milestone 12: Extended Microsoft PowerToys for Linux 🧩 ✅
 
 *Remaining high-value PowerToys utilities adapted cleanly for Wayland & X11*
 
-- [ ] **Advanced Paste (Clipboard Transforms)**:
+- [X] **Advanced Paste (Clipboard Transforms)**:
   - Format JSON, strip formatting, Base64 encode/decode, URL decode, and convert casing (`snake_case` / `camelCase` / `UPPER`) directly inside `Super+V` Clipboard History.
-- [ ] **Light Switch (Auto Dark/Light Theme)**:
-  - Switch GNOME (`color-scheme`) / KDE (`plasma-apply-colorscheme`) theme automatically by schedule or sunrise/sunset.
-- [ ] **Shortcut Guide (`Super+Shift+?`)**:
-  - Interactive cheat-sheet overlay listing all configured Knobu and desktop shortcuts.
-- [ ] **Workspaces Launcher**:
-  - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click.
-- [ ] **ZoomIt & Quick Accent**:
-  - Screen freeze-zoom & quick pen/arrow/box annotation over `capture_screen()`, plus accent-character popup and Mouse Button Lock / CursorHide while typing.
+- [X] **Light Switch (Auto Dark/Light Theme)**:
+  - Switch GNOME (`color-scheme`) / KDE (`plasma-apply-colorscheme`) theme automatically by schedule or sunrise/sunset (`knobu theme`).
+- [X] **Shortcut Guide (`Super+Shift+?`)**:
+  - Interactive cheat-sheet overlay listing all configured Knobu and desktop shortcuts (`knobu shortcut-guide`).
+- [X] **Workspaces Launcher**:
+  - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click (`knobu workspace`).
+- [X] **ZoomIt & Quick Accent**:
+  - Screen freeze-zoom & pen/arrow/box annotation overlay (`knobu zoomit`), plus Quick Accent character picker (`knobu quick-accent`).
