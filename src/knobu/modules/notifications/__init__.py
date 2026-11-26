@@ -28,21 +28,33 @@ class NotificationsModule(Module):
         "show_public_ip": True,
     }
 
+    def __init__(self, settings: dict):
+        super().__init__(settings)
+        self._tray: StatusTray | None = None
+
+    def update_settings(self, settings: dict) -> None:
+        self.settings = settings
+        if self._tray:
+            self._tray.show_public_ip = bool(settings.get("show_public_ip", True))
+            GLib.idle_add(self._tray._emit_layout_if_changed)
+
     def run(self, stop: threading.Event) -> None:
         history = NotificationHistory()
         tray = StatusTray(history=history, show_public_ip=bool(self.settings.get("show_public_ip", True)))
+        self._tray = tray
         loop = GLib.MainLoop()
 
         def on_notify(app_name: str, summary: str, body: str, icon: str) -> None:
             rec = history.add(app_name, summary, body, icon)
-            GLib.idle_add(lambda: (tray.rebuild_menu(), False)[1])
+            GLib.idle_add(tray._emit_layout_if_changed)
             if bool(self.settings.get("show_hud", False)) and not bool(self.settings.get("dnd", False)):
                 launch.knobu("notifications", "--toast", str(rec.id))
 
         monitor = NotificationMonitor(on_notify)
         if bool(self.settings.get("show_tray", True)):
             tray.start()
-        monitor.start()
+        # Start BecomeMonitor once GLib.MainLoop is spinning so private bus auth doesn't stall
+        GLib.idle_add(lambda: (monitor.start(), False)[1])
 
         def watch_stop() -> None:
             stop.wait()
@@ -52,5 +64,6 @@ class NotificationsModule(Module):
         try:
             loop.run()
         finally:
+            self._tray = None
             monitor.stop()
             tray.stop()

@@ -11,7 +11,6 @@ import time
 from gi.repository import Gio, GLib
 
 from knobu import APP_ID, config, service
-from knobu.modules.notifications.store import NotificationHistory
 from knobu.modules.powertools.aws_cli import (
     get_active_aws_profile,
     load_aws_profiles,
@@ -110,6 +109,17 @@ class MenuItem:
     action: object = None
     children: list["MenuItem"] = field(default_factory=list)
 
+    def signature(self) -> tuple:
+        return (
+            self.id,
+            self.label,
+            self.enabled,
+            self.item_type,
+            self.toggle_type,
+            self.toggle_state,
+            tuple(c.signature() for c in self.children),
+        )
+
     def to_props(self) -> dict[str, GLib.Variant]:
         if self.item_type == "separator":
             return {"type": GLib.Variant("s", "separator")}
@@ -137,8 +147,11 @@ class MenuItem:
 class StatusTray:
     """Publishes Knobu's top-bar StatusNotifierItem and dynamic configuration dropdown."""
 
-    def __init__(self, history: NotificationHistory | None = None, show_public_ip: bool = True):
-        self.history = history or NotificationHistory()
+    def __init__(self, history=None, show_public_ip: bool = True):
+        if history is None:
+            from knobu.modules.notifications.store import NotificationHistory
+            history = NotificationHistory()
+        self.history = history
         self.show_public_ip = show_public_ip
         self._conn: Gio.DBusConnection | None = None
         self._sni_reg = 0
@@ -151,6 +164,7 @@ class StatusTray:
         self._last_ip_fetch = 0.0
         self._items_by_id: dict[int, MenuItem] = {}
         self._root = MenuItem(0)
+        self._last_sig: tuple = ()
         self._lock = threading.Lock()
 
     def start(self) -> None:
@@ -174,8 +188,8 @@ class StatusTray:
             lambda *_a: self._register_watcher(),
             None,
         )
-        self.refresh_network_async(force_public=True)
         self.rebuild_menu()
+        self.refresh_network_async(force_public=True)
 
     def stop(self) -> None:
         if self._watch_id:
@@ -226,12 +240,12 @@ class StatusTray:
             with self._lock:
                 self._net = net
                 self._public_ip = pub
-            GLib.idle_add(self._emit_layout_updated)
+            GLib.idle_add(self._emit_layout_if_changed)
         threading.Thread(target=worker, name="tray-net", daemon=True).start()
 
-    def _emit_layout_updated(self) -> bool:
-        self.rebuild_menu()
-        if self._conn:
+    def _emit_layout_if_changed(self) -> bool:
+        changed = self._rebuild_if_changed()
+        if changed and self._conn:
             try:
                 self._conn.emit_signal(
                     None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
@@ -253,7 +267,7 @@ class StatusTray:
         gen["bypass"] = not bool(gen.get("bypass", False))
         config.save(data)
         service.reload()
-        self._emit_layout_updated()
+        GLib.idle_add(self._emit_layout_if_changed)
 
     def _set_awake(self, mode: str, minutes: int = 0) -> None:
         data = config.load()
@@ -266,7 +280,7 @@ class StatusTray:
             s.update(enabled=True, mode="timed", minutes=minutes, until=time.time() + minutes * 60)
         config.save(data)
         service.reload()
-        self._emit_layout_updated()
+        GLib.idle_add(self._emit_layout_if_changed)
 
     def _toggle_dnd(self) -> None:
         data = config.load()
@@ -274,19 +288,26 @@ class StatusTray:
         s["dnd"] = not bool(s.get("dnd", False))
         config.save(data)
         service.reload()
-        self._emit_layout_updated()
+        GLib.idle_add(self._emit_layout_if_changed)
 
     def _switch_aws(self, name: str, region: str) -> None:
         ok, msg = set_active_aws_profile(name, region)
         notify.notify("AWS CLI Profile" if ok else "AWS CLI Error", msg, timeout_ms=2500)
-        self._emit_layout_updated()
+        GLib.idle_add(self._emit_layout_if_changed)
 
     def rebuild_menu(self) -> MenuItem:
-        """Build fresh menu tree from live config, network state, AWS profiles, and notifications."""
+        self._rebuild_if_changed()
+        with self._lock:
+            return self._root
+
+    def _rebuild_if_changed(self) -> bool:
+        """Build menu tree with deterministic fixed IDs; returns True only if layout changed."""
         cfg = config.load()
         bypassed = bool(cfg.get("general", {}).get("bypass", False))
         dnd = bool(cfg.get("notifications", {}).get("dnd", False))
-        awake_on = bool(cfg.get("awake", {}).get("enabled", False))
+        awake_cfg = cfg.get("awake", {})
+        awake_on = bool(awake_cfg.get("enabled", False))
+        awake_mode = awake_cfg.get("mode", "indefinite") if awake_on else "off"
         aws_active = get_active_aws_profile()
         aws_profiles = load_aws_profiles()
         recent_notifs = self.history.list_recent(limit=6)
@@ -295,20 +316,17 @@ class StatusTray:
             net = self._net
             pub = self._public_ip
 
-        next_id = 1
         by_id: dict[int, MenuItem] = {}
 
-        def item(label: str = "", enabled: bool = True, item_type: str = "",
+        def item(item_id: int, label: str = "", enabled: bool = True, item_type: str = "",
                  toggle_type: str = "", toggle_state: int = 0, action=None,
                  children: list[MenuItem] | None = None) -> MenuItem:
-            nonlocal next_id
             m = MenuItem(
-                id=next_id, label=label, enabled=enabled, item_type=item_type,
+                id=item_id, label=label, enabled=enabled, item_type=item_type,
                 toggle_type=toggle_type, toggle_state=toggle_state, action=action,
                 children=children or [],
             )
-            by_id[m.id] = m
-            next_id += 1
+            by_id[item_id] = m
             return m
 
         status_lbl = f"Knobu · {'Bypassed' if bypassed else 'Active'}"
@@ -322,76 +340,84 @@ class StatusTray:
 
         aws_children = []
         if aws_profiles:
-            for prof in aws_profiles:
+            for idx, prof in enumerate(aws_profiles[:40]):
                 reg = f" ({prof.region})" if prof.region else ""
                 aws_children.append(item(
+                    100 + idx,
                     f"{prof.name}{reg}",
                     toggle_type="radio",
                     toggle_state=1 if prof.name == aws_active else 0,
                     action=lambda p=prof: self._switch_aws(p.name, p.region),
                 ))
         else:
-            aws_children.append(item("No ~/.aws/config profiles found", enabled=False))
+            aws_children.append(item(199, "No ~/.aws/config profiles found", enabled=False))
 
         notif_children = [
-            item("Open Notification Center", action=lambda: launch.knobu("notifications")),
-            item("Clear All Notifications", action=lambda: (self.history.clear(), self._emit_layout_updated())),
-            item(item_type="separator"),
+            item(401, "Open Notification Center", action=lambda: launch.knobu("notifications")),
+            item(402, "Clear All Notifications", action=lambda: (self.history.clear(), GLib.idle_add(self._emit_layout_if_changed))),
+            item(403, item_type="separator"),
         ]
         if recent_notifs:
-            for n in recent_notifs:
+            for idx, n in enumerate(recent_notifs):
                 t_str = time.strftime("%-I:%M %p", time.localtime(n.timestamp))
                 summary = (n.summary[:42] + "...") if len(n.summary) > 42 else n.summary
-                notif_children.append(item(f"[{t_str}] {n.app_name}: {summary}", enabled=False))
+                notif_children.append(item(410 + idx, f"[{t_str}] {n.app_name}: {summary}", enabled=False))
         else:
-            notif_children.append(item("No recent notifications", enabled=False))
+            notif_children.append(item(499, "No recent notifications", enabled=False))
 
         children = [
-            item(status_lbl, enabled=False),
-            item(item_type="separator"),
-            item(net_label, enabled=False),
-            item(f"Private IP: {net.private_ip}  (Click to copy)",
+            item(1, status_lbl, enabled=False),
+            item(2, item_type="separator"),
+            item(3, net_label, enabled=False),
+            item(4, f"Private IP: {net.private_ip}  (Click to copy)",
                  action=lambda ip=net.private_ip: self._copy_with_toast("Private IP", ip)),
-            item(f"Public IP: {pub}  (Click to copy)",
+            item(5, f"Public IP: {pub}  (Click to copy)",
                  action=lambda ip=pub: self._copy_with_toast("Public IP", ip)),
-            item("Refresh Network & Public IP", action=lambda: self.refresh_network_async(force_public=True)),
-            item(item_type="separator"),
-            item(f"AWS Profile: {aws_active}", children=aws_children),
-            item(item_type="separator"),
-            item("Master Bypass Mode", toggle_type="checkmark", toggle_state=1 if bypassed else 0,
+            item(6, "Refresh Network and Public IP", action=lambda: self.refresh_network_async(force_public=True)),
+            item(7, item_type="separator"),
+            item(10, f"AWS Profile: {aws_active}", children=aws_children),
+            item(11, item_type="separator"),
+            item(20, "Master Bypass Mode", toggle_type="checkmark", toggle_state=1 if bypassed else 0,
                  action=self._toggle_bypass),
-            item("Awake", children=[
-                item("Off", action=lambda: self._set_awake("off")),
-                item("Indefinite", action=lambda: self._set_awake("indefinite")),
-                item("30 Minutes", action=lambda: self._set_awake("timed", 30)),
-                item("1 Hour", action=lambda: self._set_awake("timed", 60)),
-                item("2 Hours", action=lambda: self._set_awake("timed", 120)),
+            item(21, "Awake", children=[
+                item(210, "Off", toggle_type="radio", toggle_state=1 if not awake_on else 0,
+                     action=lambda: self._set_awake("off")),
+                item(211, "Indefinite", toggle_type="radio", toggle_state=1 if (awake_on and awake_mode == "indefinite") else 0,
+                     action=lambda: self._set_awake("indefinite")),
+                item(212, "30 Minutes", action=lambda: self._set_awake("timed", 30)),
+                item(213, "1 Hour", action=lambda: self._set_awake("timed", 60)),
+                item(214, "2 Hours", action=lambda: self._set_awake("timed", 120)),
             ]),
-            item("Do Not Disturb (HUD)", toggle_type="checkmark", toggle_state=1 if dnd else 0,
+            item(22, "Do Not Disturb (HUD)", toggle_type="checkmark", toggle_state=1 if dnd else 0,
                  action=self._toggle_dnd),
-            item(item_type="separator"),
-            item("Quick Tools", children=[
-                item("Command Bar (Alt+Space)", action=lambda: launch.knobu("command-bar")),
-                item("Clipboard History (Super+V)", action=lambda: launch.knobu("clipboard")),
-                item("Cleaning Mode (Super+Alt+K)", action=lambda: launch.knobu("cleaning-mode")),
-                item("Screen Ruler (Super+Shift+M)", action=lambda: launch.knobu("screen-ruler")),
-                item("Find My Mouse (Super+Alt+F)", action=lambda: launch.knobu("find-mouse")),
-                item("Color Picker", action=lambda: launch.knobu("pick-color")),
-                item("Text Extractor", action=lambda: launch.knobu("extract-text")),
+            item(23, item_type="separator"),
+            item(30, "Quick Tools", children=[
+                item(301, "Command Bar (Alt+Space)", action=lambda: launch.knobu("command-bar")),
+                item(302, "Clipboard History (Super+V)", action=lambda: launch.knobu("clipboard")),
+                item(303, "Cleaning Mode (Super+Alt+K)", action=lambda: launch.knobu("cleaning-mode")),
+                item(304, "Screen Ruler (Super+Shift+M)", action=lambda: launch.knobu("screen-ruler")),
+                item(305, "Find My Mouse (Super+Alt+F)", action=lambda: launch.knobu("find-mouse")),
+                item(306, "Color Picker", action=lambda: launch.knobu("pick-color")),
+                item(307, "Text Extractor", action=lambda: launch.knobu("extract-text")),
             ]),
-            item(f"Notifications ({len(recent_notifs)})", children=notif_children),
-            item(item_type="separator"),
-            item("Open Knobu Settings", action=lambda: launch.knobu()),
-            item("Reload Knobu Service", action=service.reload),
+            item(40, f"Notifications ({len(recent_notifs)})", children=notif_children),
+            item(41, item_type="separator"),
+            item(90, "Open Knobu Settings", action=lambda: launch.knobu()),
+            item(91, "Reload Knobu Service", action=service.reload),
         ]
 
         root = MenuItem(0, children=children)
         by_id[0] = root
+        new_sig = root.signature()
+
         with self._lock:
+            changed = new_sig != self._last_sig
             self._root = root
             self._items_by_id = by_id
-            self._revision += 1
-        return root
+            if changed:
+                self._last_sig = new_sig
+                self._revision += 1
+        return changed
 
     def _on_sni_get_prop(self, _conn, _sender, _path, _iface, prop: str) -> GLib.Variant | None:
         net = self._net
@@ -425,15 +451,31 @@ class StatusTray:
         }
         return props.get(prop)
 
+    def _dispatch_action(self, item_id: int) -> None:
+        with self._lock:
+            it = self._items_by_id.get(item_id)
+            act = it.action if it else None
+        if callable(act):
+            def run_safe():
+                try:
+                    act()
+                except Exception as err:
+                    log.warning("tray action %d failed: %s", item_id, err)
+            threading.Thread(target=run_safe, daemon=True).start()
+
     def _on_menu_call(self, _conn, _sender, _path, _iface, method: str, params, invocation) -> None:
         if method == "AboutToShow":
-            self.refresh_network_async(force_public=False)
-            self.rebuild_menu()
-            invocation.return_value(GLib.Variant("(b)", (True,)))
+            item_id = params.unpack()[0]
+            changed = False
+            if item_id == 0:
+                changed = self._rebuild_if_changed()
+                if (time.monotonic() - self._last_ip_fetch) > 60:
+                    self.refresh_network_async(force_public=False)
+            invocation.return_value(GLib.Variant("(b)", (changed,)))
         elif method == "AboutToShowGroup":
             ids = params.unpack()[0]
-            self.rebuild_menu()
-            invocation.return_value(GLib.Variant("(aiai)", (list(ids), [])))
+            changed = self._rebuild_if_changed() if 0 in ids else False
+            invocation.return_value(GLib.Variant("(aiai)", ([0] if changed else [], [])))
         elif method == "GetLayout":
             parent_id, depth, _prop_names = params.unpack()
             with self._lock:
@@ -455,21 +497,13 @@ class StatusTray:
         elif method == "Event":
             item_id, ev_id, _data, _ts = params.unpack()
             if ev_id == "clicked":
-                with self._lock:
-                    it = self._items_by_id.get(item_id)
-                    act = it.action if it else None
-                if callable(act):
-                    GLib.idle_add(lambda: (act(), False)[1])
+                self._dispatch_action(item_id)
             invocation.return_value(None)
         elif method == "EventGroup":
             events = params.unpack()[0]
             for item_id, ev_id, _data, _ts in events:
                 if ev_id == "clicked":
-                    with self._lock:
-                        it = self._items_by_id.get(item_id)
-                        act = it.action if it else None
-                    if callable(act):
-                        GLib.idle_add(lambda a=act: (a(), False)[1])
+                    self._dispatch_action(item_id)
             invocation.return_value(GLib.Variant("(ai)", ([],)))
         else:
             invocation.return_value(None)
