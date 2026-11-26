@@ -1,6 +1,7 @@
 """Registry of Knobu modules. Add new modules to MODULES to make them appear
 in the daemon and the settings app."""
 
+from knobu.modules.automation import AutomationModule
 from knobu.modules.awake import AwakeModule
 from knobu.modules.base import Module
 from knobu.modules.clipboard import ClipboardModule
@@ -14,7 +15,7 @@ from knobu.modules.touchpad import TouchpadModule
 
 MODULES: list[type[Module]] = [
     TouchpadModule, KeyboardModule, MouseModule, AwakeModule, ClipboardModule, CommandBarModule,
-    NotificationsModule, PowerToolsModule, ColorPickerModule, TextExtractorModule,
+    NotificationsModule, AutomationModule, PowerToolsModule, ColorPickerModule, TextExtractorModule,
 ]
 
 

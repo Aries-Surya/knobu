@@ -13,6 +13,18 @@ import time
 from gi.repository import Adw, Gio, GLib, Gtk
 
 from knobu import modules, service
+from knobu.modules.automation import (
+    ACTION_TYPES,
+    CONDITION_TYPES,
+    TRIGGER_TYPES,
+    AutomationAction,
+    AutomationModule,
+    AutomationRule,
+    load_history,
+    load_rules,
+    run_rule_now,
+    save_rules,
+)
 from knobu.modules.awake import AwakeModule
 from knobu.modules.clipboard import ClipboardModule
 from knobu.modules.commandbar import (
@@ -1313,6 +1325,81 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     lock_group.add(lock_status)
     page.add(lock_group)
 
+    # 8. Extended PowerToys (Shortcut Guide, ZoomIt, Quick Accent, Light Switch, Workspaces)
+    from knobu.modules.powertools.theme import get_theme, set_theme
+    from knobu.modules.powertools.workspaces import WorkspaceGroup, launch_workspace, load_workspaces, save_workspaces
+
+    ext_group = Adw.PreferencesGroup(
+        title="Extended PowerToys Utilities",
+        description="Shortcut Guide overlay, ZoomIt freeze-annotate, Quick Accent picker, and Light Switch theme.",
+    )
+    ext_group.add(shortcut_row(store, mid, "shortcut_guide_hotkey", "Shortcut Guide Shortcut",
+                               "Interactive overlay listing all configured Knobu and desktop shortcuts"))
+    ext_group.add(button_row("Shortcut Guide", "Open Guide", lambda: launch.knobu("shortcut-guide"),
+                             "View all keyboard shortcuts in one searchable window"))
+    ext_group.add(shortcut_row(store, mid, "zoomit_hotkey", "ZoomIt Annotation Shortcut",
+                               "Freeze screen, zoom with scroll wheel, and draw pen/arrow/box annotations"))
+    ext_group.add(button_row("ZoomIt", "Start ZoomIt", lambda: launch.knobu("zoomit"),
+                             "Launch screen zoom and annotation overlay now"))
+    ext_group.add(button_row("Quick Accent", "Open Picker", lambda: launch.knobu("quick-accent"),
+                             "Pick accented characters and symbols to paste"))
+    ext_group.add(switch_row(store, mid, "light_switch_enabled", "Light Switch (Auto Theme)",
+                             "Automatically switch GNOME / KDE dark and light theme on schedule"))
+    ext_group.add(button_row("Desktop Theme", "Toggle Dark/Light",
+                             lambda: set_theme("toggle"),
+                             f"Current theme: {get_theme().capitalize()}"))
+    page.add(ext_group)
+
+    # 9. Workspaces Launcher
+    ws_group = Adw.PreferencesGroup(
+        title="Workspaces Launcher",
+        description="Save named app and command groups and launch them together in one click.",
+    )
+    ws_name_entry = Adw.EntryRow(title="Workspace Name (e.g. Dev Ops)")
+    ws_cmds_entry = Adw.EntryRow(title="Commands (semicolon-separated, e.g. code; gnome-terminal)")
+    ws_add_btn = Gtk.Button(label="Save Workspace", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    ws_cmds_entry.add_suffix(ws_add_btn)
+    ws_group.add(ws_name_entry)
+    ws_group.add(ws_cmds_entry)
+    ws_rows: list[Gtk.Widget] = []
+
+    def rebuild_workspaces() -> None:
+        for r in ws_rows:
+            ws_group.remove(r)
+        ws_rows.clear()
+        for idx, g in enumerate(load_workspaces()):
+            row = Adw.ActionRow(use_markup=False, title=g.name, subtitle=", ".join(g.commands))
+            launch_b = Gtk.Button(label="Launch", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            launch_b.connect("clicked", lambda _b, n=g.name, r=row: r.set_subtitle(launch_workspace(n)[1]))
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+            def on_del_ws(_b, i=idx):
+                groups = load_workspaces()
+                if 0 <= i < len(groups):
+                    groups.pop(i)
+                    save_workspaces(groups)
+                rebuild_workspaces()
+            del_b.connect("clicked", on_del_ws)
+            row.add_suffix(launch_b)
+            row.add_suffix(del_b)
+            ws_group.add(row)
+            ws_rows.append(row)
+
+    def on_add_ws(_b) -> None:
+        name = ws_name_entry.get_text().strip()
+        cmds = [c.strip() for c in ws_cmds_entry.get_text().split(";") if c.strip()]
+        if not name or not cmds:
+            return
+        groups = [g for g in load_workspaces() if g.name.lower() != name.lower()]
+        groups.append(WorkspaceGroup(name=name, commands=cmds))
+        save_workspaces(groups)
+        ws_name_entry.set_text("")
+        ws_cmds_entry.set_text("")
+        rebuild_workspaces()
+
+    ws_add_btn.connect("clicked", on_add_ws)
+    rebuild_workspaces()
+    page.add(ws_group)
+
     return page
 
 
@@ -1602,6 +1689,133 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def automation_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    import uuid
+    page = ModulePage(store, AutomationModule)
+
+    builder = Adw.PreferencesGroup(
+        title="New Automation Rule",
+        description="Build Mac Shortcuts-style rules: When [Trigger] -> If [Condition] -> Then [Action].",
+    )
+    name_row = Adw.EntryRow(title="Rule Name (e.g. Office Wi-Fi Setup)")
+    trig_row = Adw.ComboRow(use_markup=False, title="When (Trigger)",
+                            model=Gtk.StringList.new([lbl for _, lbl in TRIGGER_TYPES]))
+    trig_val = Adw.EntryRow(title="Trigger Value (SSID, %, app, path, or HH:MM)")
+    cond_row = Adw.ComboRow(use_markup=False, title="If (Condition)",
+                            model=Gtk.StringList.new([lbl for _, lbl in CONDITION_TYPES]))
+    cond_val = Adw.EntryRow(title="Condition Value (optional)")
+    act_row = Adw.ComboRow(use_markup=False, title="Then (Action)",
+                           model=Gtk.StringList.new([lbl for _, lbl in ACTION_TYPES]))
+    act_val = Adw.EntryRow(title="Action Value (message, profile, dark/light, or command)")
+
+    add_btn = Gtk.Button(label="Add Rule", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    act_val.add_suffix(add_btn)
+    for w in (name_row, trig_row, trig_val, cond_row, cond_val, act_row, act_val):
+        builder.add(w)
+    page.add(builder)
+
+    rules_group = Adw.PreferencesGroup(title="Active Automation Rules")
+    rules_rows: list[Gtk.Widget] = []
+
+    hist_group = Adw.PreferencesGroup(title="Execution History")
+    hist_rows: list[Gtk.Widget] = []
+
+    def rebuild_history() -> None:
+        for r in hist_rows:
+            hist_group.remove(r)
+        hist_rows.clear()
+        entries = load_history(limit=10)
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No executions yet",
+                                  subtitle="Rules run automatically in the background or via Test Run")
+            hist_group.add(empty)
+            hist_rows.append(empty)
+            return
+        for ent in entries:
+            ts = time.strftime("%H:%M:%S", time.localtime(ent.timestamp))
+            row = Adw.ActionRow(use_markup=False, title=f"[{ts}] {ent.rule_name}",
+                                subtitle=f"{ent.trigger} -> {ent.result}")
+            hist_group.add(row)
+            hist_rows.append(row)
+
+    def rebuild_rules() -> None:
+        for r in rules_rows:
+            rules_group.remove(r)
+        rules_rows.clear()
+        rules = load_rules()
+        if not rules:
+            empty = Adw.ActionRow(use_markup=False, title="No automation rules configured")
+            rules_group.add(empty)
+            rules_rows.append(empty)
+            return
+        for idx, rule in enumerate(rules):
+            act_desc = ", ".join(f"{a.type}({a.value})" for a in rule.actions)
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=rule.name,
+                subtitle=f"When {rule.trigger_type}={rule.trigger_value or '*'} -> {act_desc}",
+            )
+            sw = Gtk.Switch(active=rule.enabled, valign=Gtk.Align.CENTER)
+            def on_toggle(s, _p, i=idx):
+                cur = load_rules()
+                if 0 <= i < len(cur):
+                    cur[i].enabled = s.get_active()
+                    save_rules(cur)
+            sw.connect("notify::active", on_toggle)
+
+            test_b = Gtk.Button(label="Test Run", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            def on_test(_b, r_obj=rule, r_widget=row):
+                _ok, msg = run_rule_now(r_obj)
+                r_widget.set_subtitle(f"Last test: {msg}")
+                rebuild_history()
+            test_b.connect("clicked", on_test)
+
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+            def on_del(_b, i=idx):
+                cur = load_rules()
+                if 0 <= i < len(cur):
+                    cur.pop(i)
+                    save_rules(cur)
+                rebuild_rules()
+            del_b.connect("clicked", on_del)
+
+            row.add_suffix(sw)
+            row.add_suffix(test_b)
+            row.add_suffix(del_b)
+            rules_group.add(row)
+            rules_rows.append(row)
+
+    def on_add_rule(_b) -> None:
+        r_name = name_row.get_text().strip() or "New Rule"
+        t_type = TRIGGER_TYPES[trig_row.get_selected()][0]
+        c_type = CONDITION_TYPES[cond_row.get_selected()][0]
+        a_type = ACTION_TYPES[act_row.get_selected()][0]
+        rules = load_rules()
+        rules.append(AutomationRule(
+            id=uuid.uuid4().hex[:8],
+            name=r_name,
+            enabled=True,
+            trigger_type=t_type,
+            trigger_value=trig_val.get_text().strip(),
+            condition_type=c_type,
+            condition_value=cond_val.get_text().strip(),
+            actions=[AutomationAction(type=a_type, value=act_val.get_text().strip())],
+        ))
+        save_rules(rules)
+        name_row.set_text("")
+        trig_val.set_text("")
+        cond_val.set_text("")
+        act_val.set_text("")
+        rebuild_rules()
+
+    add_btn.connect("clicked", on_add_rule)
+    rebuild_rules()
+    rebuild_history()
+    page.add(rules_group)
+    page.add(hist_group)
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
@@ -1612,6 +1826,7 @@ PAGES = [
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
     (NotificationsModule.id, NotificationsModule.name, NotificationsModule.icon, notifications_page, "modules"),
+    (AutomationModule.id, AutomationModule.name, AutomationModule.icon, automation_page, "modules"),
     (PowerToolsModule.id, PowerToolsModule.name, PowerToolsModule.icon, powertools_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),

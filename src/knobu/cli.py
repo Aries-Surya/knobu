@@ -102,6 +102,16 @@ def main() -> None:
     p_cidr.add_argument("prefix", help="CIDR prefix (e.g. 192.168.1.0/24 or 10.0.0.0/16)")
     sub.add_parser("aws-whoami", help="display active AWS caller identity (Account ID, ARN, UserId)")
     sub.add_parser("containers", help="list Docker containers status and ports")
+    sub.add_parser("shortcut-guide", help="open the interactive Shortcut Guide overlay")
+    sub.add_parser("zoomit", help="freeze screen for zoom & pen/arrow/box annotation")
+    sub.add_parser("quick-accent", help="open the Quick Accent character picker popup")
+    p_theme = sub.add_parser("theme", help="switch or inspect desktop light/dark theme")
+    p_theme.add_argument("mode", nargs="?", default="status", choices=["light", "dark", "toggle", "status"])
+    p_ws = sub.add_parser("workspace", help="launch a saved workspace app group (or list groups)")
+    p_ws.add_argument("name", nargs="?", default=None, help="workspace name to launch")
+    sub.add_parser("automations", help="list configured automation rules")
+    p_ra = sub.add_parser("run-automation", help="manually run an automation rule by name or ID")
+    p_ra.add_argument("rule", help="rule name or ID")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -241,6 +251,54 @@ def main() -> None:
             print(f"{'CONTAINER ID':<14} {'NAME':<20} {'IMAGE':<24} {'STATUS':<16} {'PORTS'}")
             for c in conts:
                 print(f"{c.id:<14} {c.name[:19]:<20} {c.image[:23]:<24} {c.status[:15]:<16} {c.ports}")
+    elif args.command == "shortcut-guide":
+        from knobu.ui.shortcut_guide import main as guide_main
+        sys.exit(guide_main())
+    elif args.command == "zoomit":
+        from knobu.ui.zoomit import main as zoomit_main
+        sys.exit(zoomit_main())
+    elif args.command == "quick-accent":
+        from knobu.ui.quick_accent import main as qa_main
+        sys.exit(qa_main())
+    elif args.command == "theme":
+        from knobu.modules.powertools.theme import get_theme, set_theme
+        if args.mode == "status":
+            print(f"Current desktop theme: {get_theme()}")
+        else:
+            ok, msg = set_theme(args.mode)
+            print(msg)
+            sys.exit(0 if ok else 1)
+    elif args.command == "workspace":
+        from knobu.modules.powertools.workspaces import launch_workspace, load_workspaces
+        if not args.name:
+            groups = load_workspaces()
+            if not groups:
+                print("No workspaces configured.")
+            for g in groups:
+                print(f"{g.name}: {', '.join(g.commands)}")
+        else:
+            ok, msg = launch_workspace(args.name)
+            print(msg)
+            sys.exit(0 if ok else 1)
+    elif args.command == "automations":
+        from knobu.modules.automation import load_rules
+        rules = load_rules()
+        if not rules:
+            print("No automation rules configured.")
+        for r in rules:
+            st = "ON" if r.enabled else "OFF"
+            print(f"[{st}] {r.id} | {r.name} | When {r.trigger_type}={r.trigger_value}")
+    elif args.command == "run-automation":
+        from knobu.modules.automation import load_rules, run_rule_now
+        rules = load_rules()
+        q = args.rule.strip().lower()
+        target = next((r for r in rules if r.id.lower() == q or r.name.lower() == q), None)
+        if not target:
+            print(f"Automation rule not found: {args.rule}", file=sys.stderr)
+            sys.exit(1)
+        ok, msg = run_rule_now(target)
+        print(msg)
+        sys.exit(0 if ok else 1)
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

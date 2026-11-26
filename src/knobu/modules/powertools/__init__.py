@@ -102,14 +102,23 @@ class PowerToolsModule(Module):
         "enabled": True,
         "hotkey": "super+alt+k",
         "ruler_hotkey": "super+shift+m",
+        "shortcut_guide_hotkey": "super+shift+slash",
+        "zoomit_hotkey": "super+alt+z",
         "cleaning_duration": 30,
+        "light_switch_enabled": False,
+        "light_switch_light_start": "07:00",
+        "light_switch_dark_start": "19:00",
     }
 
     def run(self, stop: threading.Event) -> None:
+        from knobu.modules.powertools.theme import get_theme, scheduled_theme_for_time, set_theme
+
         bindings = []
         shortcuts = [
             ("hotkey", "cleaning-mode"),
             ("ruler_hotkey", "screen-ruler"),
+            ("shortcut_guide_hotkey", "shortcut-guide"),
+            ("zoomit_hotkey", "zoomit"),
         ]
         for key, cmd in shortcuts:
             raw = self.settings.get(key, "").strip()
@@ -123,7 +132,16 @@ class PowerToolsModule(Module):
                 self.log.error("bad shortcut for %s: %s", key, err)
 
         try:
-            stop.wait()
+            while not stop.is_set():
+                if bool(self.settings.get("light_switch_enabled", False)):
+                    target = scheduled_theme_for_time(
+                        light_start=str(self.settings.get("light_switch_light_start", "07:00")),
+                        dark_start=str(self.settings.get("light_switch_dark_start", "19:00")),
+                    )
+                    if get_theme() != target:
+                        set_theme(target)
+                        self.log.info("Light Switch applied %s theme", target)
+                stop.wait(60)
         finally:
             for b in bindings:
                 hotkeys.service().unregister(b)
