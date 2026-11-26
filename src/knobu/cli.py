@@ -117,6 +117,14 @@ def main() -> None:
     p_ca.add_argument("schedule", help="cron schedule (e.g. '0 12 * * *' or '@daily')")
     p_ca.add_argument("cmd", help="shell command to run")
     p_ca.add_argument("--comment", default="", help="optional description comment")
+    sub.add_parser("mic-mute", help="toggle global default microphone mute")
+    sub.add_parser("audio-switch", help="cycle default audio output device")
+    sub.add_parser("streams", help="list active application audio streams and volumes")
+    sub.add_parser("always-on-top", help="pin/unpin the active window above others")
+    sub.add_parser("fancyzones", help="open interactive FancyZones layout overlay")
+    p_snap = sub.add_parser("snap", help="snap active window to a FancyZones zone index")
+    p_snap.add_argument("zone", type=int, help="0-based zone index")
+    sub.add_parser("sysmon", help="display live CPU, RAM, thermal, and network metrics")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -320,6 +328,51 @@ def main() -> None:
         ok, msg = add_cron_job(args.schedule, args.cmd, args.comment)
         print(msg)
         sys.exit(0 if ok else 1)
+    elif args.command == "mic-mute":
+        from knobu.modules.sound import toggle_mic_mute
+        ok, msg = toggle_mic_mute()
+        print(msg)
+        sys.exit(0 if ok else 1)
+    elif args.command == "audio-switch":
+        from knobu.modules.sound import cycle_output_sink
+        ok, msg = cycle_output_sink()
+        print(msg)
+        sys.exit(0 if ok else 1)
+    elif args.command == "streams":
+        from knobu.modules.sound import list_audio_state
+        sinks, sources, streams = list_audio_state()
+        print("Output Devices:")
+        for s in sinks:
+            mark = "*" if s.is_default else " "
+            print(f"  {mark} [{s.id}] {s.name} ({s.volume}%{' MUTED' if s.muted else ''})")
+        print("Application Streams:")
+        if not streams:
+            print("  (no active playback streams)")
+        for st in streams:
+            print(f"  [{st.id}] {st.app_name} — {st.volume}%{' MUTED' if st.muted else ''}")
+    elif args.command == "always-on-top":
+        from knobu.modules.windows import toggle_always_on_top
+        ok, msg = toggle_always_on_top()
+        print(msg)
+        sys.exit(0 if ok else 1)
+    elif args.command == "fancyzones":
+        from knobu.ui.fancyzones import main as fz_main
+        sys.exit(fz_main())
+    elif args.command == "snap":
+        from knobu import config
+        from knobu.modules.windows import WindowModule, snap_active_window
+        s = config.module_settings(config.load(), WindowModule.id, WindowModule.defaults)
+        ok, msg = snap_active_window(args.zone, str(s.get("zone_preset", "2col")), int(s.get("zone_gap", 8)))
+        print(msg)
+        sys.exit(0 if ok else 1)
+    elif args.command == "sysmon":
+        from knobu.modules.sysmon import collect_metrics
+        m = collect_metrics(sample_sec=0.25)
+        print(f"CPU:     {m.cpu_percent:.1f}% ({len(m.per_core)} cores)")
+        print(f"Memory:  {m.mem_used_gb:.2f} / {m.mem_total_gb:.2f} GB ({m.mem_percent:.1f}%)")
+        print(f"Thermal: {m.max_temp_c:.1f}°C")
+        print(f"Network: ↓ {m.net_rx_kbps:.1f} KB/s  ↑ {m.net_tx_kbps:.1f} KB/s")
+        print(f"Power:   {m.battery_percent}% ({'AC' if m.ac_online else 'Battery'})")
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

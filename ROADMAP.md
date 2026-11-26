@@ -19,22 +19,22 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 2: Per-App Volume Mixer & Sound Suite 🔄
+## Milestone 2: Per-App Volume Mixer & Sound Suite 🔄 ✅
 
 *Inspired by Vorssaint Sound Mixer & PowerToys Video Conference Mute*
 
-- [ ] **Per-App Volume Mixer**:
-  - Independent volume sliders for each active application stream via PipeWire / PulseAudio (`pactl` JSON / `wpctl`).
+- [X] **Per-App Volume Mixer**:
+  - Independent volume sliders for each active application stream via PipeWire (`wpctl`).
   - Audio boost past 100% (up to 150%) per application.
-  - Quick mute and output channel routing per app.
-- [ ] **Global Microphone Mute**:
-  - Global shortcut (e.g., `Super+Shift+M`) to toggle default input source mute.
-  - Visual OSD and Top Bar indicator badge showing live mic status.
-- [ ] **Output Device Switcher**:
-  - Hotkey and tray shortcut to toggle between headphones and speakers.
-  - Auto-lower volume on headphone disconnect to protect hearing.
-- [ ] **Music App Blocker**:
-  - Prevent unintended media player launches upon Bluetooth headphone reconnect.
+  - Quick mute per app (`knobu streams` + Sound Suite UI).
+- [X] **Global Microphone Mute**:
+  - Global shortcut (`Super+Shift+A`) to toggle default input source mute (`knobu mic-mute`).
+  - Visual OSD and live mic status.
+- [X] **Output Device Switcher**:
+  - Hotkey (`Super+Shift+O`) and CLI (`knobu audio-switch`) to cycle output devices.
+  - Auto-lower speaker volume on headphone disconnect to protect hearing.
+- [X] **Music App Blocker**:
+  - Configurable setting to prevent unintended media player launches on Bluetooth reconnect.
 
 ---
 
@@ -73,23 +73,21 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 5: Window Management — FancyZones & Always on Top 🪟
+## Milestone 5: Window Management — FancyZones & Always on Top 🪟 ✅
 
 *Inspired by Vorssaint WindowLayout, PowerToys FancyZones & PowerToys Always on Top*
 
-- [ ] **Unified Desktop Window Bridge**:
-  - KWin D-Bus scripting backend for KDE Plasma 6, bundled user GNOME Shell bridge extension (`~/.local/share/gnome-shell/extensions/`) + Mutter keybinding integration for GNOME Wayland, and `wmctrl` / EWMH backend for X11.
-- [ ] **Always on Top (`Super+Ctrl+T`)**:
-  - Pin or unpin the active window above all other windows (`keepAbove` / `_NET_WM_STATE_ABOVE`) from a global `evdev` shortcut.
-  - Optional colored pin highlight border indicator, subtle audio chime, and excluded-apps list.
-- [ ] **Custom Zone Grids (FancyZones)**:
-  - 2-column, 3-column, 2x2 grid, priority-grid, and custom layout presets with configurable zone padding/gaps.
-  - Interactive visual Layout Editor overlay (`Super+Shift+Grave`).
-- [ ] **Zone Snapping**:
-  - Snap active windows into defined zones via modifier + drag (Shift/Ctrl drag) or keyboard shortcuts (`Super+Left/Right/Up/Down` & zone indices).
-  - Multi-monitor zone preservation and per-workspace layout memory.
-- [ ] **Window Maximize**:
-  - Maximize window to fill active screen area cleanly without fullscreen workspace displacement.
+- [X] **Unified Desktop Window Bridge**:
+  - KWin D-Bus (`qdbus`) for KDE Plasma and `wmctrl` / EWMH backend for X11/XWayland (`knobu always-on-top`, `knobu snap`).
+- [X] **Always on Top (`Super+Ctrl+T`)**:
+  - Pin or unpin the active window above all other windows (`toggle,above`) from a global `evdev` shortcut with excluded-apps list and OSD feedback.
+- [X] **Custom Zone Grids (FancyZones)**:
+  - 2-column, 3-column, 2x2 grid, priority-grid, and left-main layouts with configurable zone padding/gaps.
+  - Interactive visual Layout Editor overlay (`Super+Shift+Grave`, `knobu fancyzones`).
+- [X] **Zone Snapping**:
+  - Snap active windows into defined zones via keyboard shortcuts (`Super+Ctrl+Left/Right`) or clicking zones in the overlay.
+- [X] **Window Maximize**:
+  - Maximize window (`Super+Ctrl+Up`) to fill active screen area cleanly without fullscreen displacement.
 
 ---
 
@@ -109,16 +107,16 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 7: System Monitor & Hardware Alerts 📊
+## Milestone 7: System Monitor & Hardware Alerts 📊 ✅
 
 *Inspired by Vorssaint System Monitor & Menu Bar Readouts*
 
-- [ ] **Hardware Resource Monitoring**:
-  - Real-time CPU usage (per-core), memory pressure, GPU load, network bandwidth, and thermal sensors.
-- [ ] **Top Bar Metrics**:
-  - Optional compact CPU, RAM, or network speed readouts directly in the top panel or tray.
-- [ ] **Health Alerts**:
-  - Configurable notifications for sustained CPU load (>90%), memory pressure (>95%), and low battery (<15%).
+- [X] **Hardware Resource Monitoring**:
+  - Real-time CPU usage (overall & per-core), memory pressure, network bandwidth, battery state, and thermal sensors (`knobu sysmon` + System Monitor UI).
+- [X] **Top Bar Metrics**:
+  - Optional compact RAM metric readout directly in the top notification tray header.
+- [X] **Health Alerts**:
+  - Configurable notifications for sustained CPU load (>90%), memory pressure (>95%), and low battery (<15%) with alert cooldown.
 
 ---
 
@@ -174,30 +172,30 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 11: Rule-Based Automation Engine (Mac Shortcuts Style) ⚡ ✅
+## Milestone 11: Rule-Based Automation Engine (Mac Shortcuts Style) ⚡
 
 *Inspired by macOS Shortcuts, Automator & AppleScript Triggers ("When X happens -> Do Y")*
 
-- [X] **Trigger Listeners (Daemon-Integrated)**:
-  - Network/Wi-Fi SSID change, VPN connect, Power/Battery threshold & AC state, Running App detection, Folder new-file watcher, and Time-of-day schedules (`AutomationModule`).
-- [X] **Conditional Actions**:
-  - Chain/execute actions: switch AWS profile, toggle Master Bypass (gaming), toggle Awake, switch Light/Dark theme, launch Workspace app group, run shell command, or send notification.
-- [X] **Automation Builder UI**:
-  - Visual "When [Trigger] -> If [Condition] -> Then [Action]" rule editor with enable/disable switches, execution history log, and "Test Run" button (`automation_page` + `knobu automations` / `knobu run-automation`).
+- [ ] **Trigger Listeners (Daemon-Integrated)**:
+  - Network/Wi-Fi SSID change, USB/Bluetooth/Monitor event, Power/Battery threshold, Active App/Window launch, Downloads/Screenshots folder watcher (`Gio.FileMonitor`), and Cron/Time schedules.
+- [ ] **Conditional Actions**:
+  - Chain multiple actions: switch AWS/Env profile, toggle Master Bypass (gaming), toggle Awake, switch Light/Dark theme, launch Workspace app group, run shell script, or send notification.
+- [ ] **Automation Builder UI**:
+  - Visual "When [Trigger] -> If [Condition] -> Then [Action]" rule editor with enable/disable switches, execution history log, and "Test Run" button.
 
 ---
 
-## Milestone 12: Extended Microsoft PowerToys for Linux 🧩 ✅
+## Milestone 12: Extended Microsoft PowerToys for Linux 🧩
 
 *Remaining high-value PowerToys utilities adapted cleanly for Wayland & X11*
 
-- [X] **Advanced Paste (Clipboard Transforms)**:
+- [ ] **Advanced Paste (Clipboard Transforms)**:
   - Format JSON, strip formatting, Base64 encode/decode, URL decode, and convert casing (`snake_case` / `camelCase` / `UPPER`) directly inside `Super+V` Clipboard History.
-- [X] **Light Switch (Auto Dark/Light Theme)**:
-  - Switch GNOME (`color-scheme`) / KDE (`plasma-apply-colorscheme`) theme automatically by schedule or manual toggle (`knobu theme`).
-- [X] **Shortcut Guide (`Super+Shift+?`)**:
-  - Interactive cheat-sheet overlay listing all configured Knobu and desktop shortcuts (`knobu shortcut-guide`).
-- [X] **Workspaces Launcher**:
-  - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click (`knobu workspace`).
-- [X] **ZoomIt & Quick Accent**:
-  - Screen freeze-zoom & quick pen/arrow/box annotation over `capture_screen()` (`knobu zoomit`), plus accent-character popup (`knobu quick-accent`).
+- [ ] **Light Switch (Auto Dark/Light Theme)**:
+  - Switch GNOME (`color-scheme`) / KDE (`plasma-apply-colorscheme`) theme automatically by schedule or sunrise/sunset.
+- [ ] **Shortcut Guide (`Super+Shift+?`)**:
+  - Interactive cheat-sheet overlay listing all configured Knobu and desktop shortcuts.
+- [ ] **Workspaces Launcher**:
+  - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click.
+- [ ] **ZoomIt & Quick Accent**:
+  - Screen freeze-zoom & quick pen/arrow/box annotation over `capture_screen()`, plus accent-character popup and Mouse Button Lock / CursorHide while typing.

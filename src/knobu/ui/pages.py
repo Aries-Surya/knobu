@@ -38,7 +38,19 @@ from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
 from knobu.modules.notifications import NotificationsModule
 from knobu.modules.powertools import PowerToolsModule
+from knobu.modules.sound import (
+    SoundSuiteModule,
+    cycle_output_sink,
+    get_mic_status,
+    list_audio_state,
+    set_default_sink,
+    set_stream_volume,
+    toggle_mic_mute,
+    toggle_stream_mute,
+)
+from knobu.modules.sysmon import SystemMonitorModule, collect_metrics
 from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
+from knobu.modules.windows import ZONE_PRESETS, WindowModule, maximize_active_window, toggle_always_on_top
 from knobu.system import keys, launch, permissions
 from knobu.system.audio import system_max_volume
 from knobu.ui.store import SettingsStore
@@ -1898,6 +1910,201 @@ def automation_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def sound_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = SoundSuiteModule.id
+    page = ModulePage(store, SoundSuiteModule)
+
+    ctrl_group = Adw.PreferencesGroup(
+        title="Microphone and Output Controls",
+        description="Global microphone mute, output device switcher, and hearing protection.",
+    )
+    ctrl_group.add(shortcut_row(store, mid, "mic_mute_hotkey", "Global Mic Mute Shortcut",
+                                "Toggle default microphone mute with OSD feedback"))
+    ctrl_group.add(shortcut_row(store, mid, "switch_output_hotkey", "Switch Output Device Shortcut",
+                                "Cycle between headphones and speakers"))
+    ctrl_group.add(switch_row(store, mid, "auto_lower_on_disconnect", "Headphone Disconnect Safety",
+                              "Automatically lower speaker volume when Bluetooth/wired headphones disconnect"))
+    ctrl_group.add(spin_row(store, mid, "safe_speaker_volume", "Safe Speaker Volume (%)",
+                            "Target volume percentage when switching back to speakers", 5, 80, 5))
+    ctrl_group.add(switch_row(store, mid, "block_bt_music_autostart", "Music App Blocker",
+                              "Prevent unintended media player launches on Bluetooth reconnect"))
+
+    _mic_vol, mic_muted = get_mic_status()
+    mic_row = Adw.ActionRow(use_markup=False, title="Microphone Status",
+                            subtitle="Muted" if mic_muted else "Active (Live)")
+    mic_btn = Gtk.Button(label="Toggle Mic Mute", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    def on_mic_btn(_b):
+        _ok, msg = toggle_mic_mute()
+        mic_row.set_subtitle(msg)
+    mic_btn.connect("clicked", on_mic_btn)
+    mic_row.add_suffix(mic_btn)
+    ctrl_group.add(mic_row)
+    page.add(ctrl_group)
+
+    sinks, _sources, streams = list_audio_state()
+    if sinks:
+        sink_group = Adw.PreferencesGroup(title="Output Devices")
+        names = [s.name for s in sinks]
+        sel = Adw.ComboRow(use_markup=False, title="Default Output Sink",
+                           model=Gtk.StringList.new(names))
+        def_idx = next((i for i, s in enumerate(sinks) if s.is_default), 0)
+        sel.set_selected(def_idx)
+        sel.connect("notify::selected", lambda r, _p: set_default_sink(sinks[r.get_selected()].id))
+        sink_group.add(sel)
+        page.add(sink_group)
+
+    mixer_group = Adw.PreferencesGroup(
+        title="Per-App Volume Mixer (up to 150%)",
+        description="Independent volume sliders and mute toggles for active playback streams.",
+    )
+    mixer_rows: list[Gtk.Widget] = []
+
+    def rebuild_mixer(*_args) -> None:
+        for r in mixer_rows:
+            mixer_group.remove(r)
+        mixer_rows.clear()
+        _, _, cur_streams = list_audio_state()
+        if not cur_streams:
+            empty = Adw.ActionRow(use_markup=False, title="No active application audio streams",
+                                  subtitle="Play audio in a browser or media app, then refresh")
+            mixer_group.add(empty)
+            mixer_rows.append(empty)
+            return
+        for st in cur_streams:
+            row = Adw.ActionRow(use_markup=False, title=st.app_name,
+                                subtitle=f"{st.volume}%{' (Muted)' if st.muted else ''}")
+            scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 150, 5)
+            scale.set_value(st.volume)
+            scale.set_size_request(180, -1)
+            scale.set_valign(Gtk.Align.CENTER)
+            def on_slide(sc, sid=st.id, r=row):
+                val = int(sc.get_value())
+                set_stream_volume(sid, val)
+                r.set_subtitle(f"{val}%")
+            scale.connect("value-changed", on_slide)
+
+            mute_b = Gtk.Button(
+                icon_name="audio-volume-muted-symbolic",
+                tooltip_text="Toggle mute",
+                valign=Gtk.Align.CENTER,
+                css_classes=["flat"],
+            )
+            mute_b.connect("clicked", lambda _b, sid=st.id: (toggle_stream_mute(sid), rebuild_mixer()))
+            row.add_suffix(scale)
+            row.add_suffix(mute_b)
+            mixer_group.add(row)
+            mixer_rows.append(row)
+
+    ref_row = Adw.ActionRow(use_markup=False, title="Active Streams", subtitle="Refresh PipeWire application streams")
+    ref_b = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    ref_b.connect("clicked", rebuild_mixer)
+    ref_row.add_suffix(ref_b)
+    mixer_group.add(ref_row)
+    rebuild_mixer()
+    page.add(mixer_group)
+
+    return page
+
+
+def windows_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = WindowModule.id
+    page = ModulePage(store, WindowModule)
+
+    aot_group = Adw.PreferencesGroup(
+        title="Always on Top",
+        description="Pin or unpin the active window above all other windows.",
+    )
+    aot_group.add(shortcut_row(store, mid, "always_on_top_hotkey", "Always on Top Shortcut",
+                               "Toggle keep-above state on the active window"))
+    aot_group.add(button_row("Pin Active Window", "Toggle Always on Top",
+                             lambda: toggle_always_on_top(store.get(mid, "excluded_apps", [])),
+                             "Pin or unpin the focused window immediately"))
+    page.add(aot_group)
+
+    fz_group = Adw.PreferencesGroup(
+        title="FancyZones Grid Snapping",
+        description="Snap windows into structured zone layouts with configurable padding.",
+    )
+    fz_group.add(choice_row(store, mid, "zone_preset", "Active Zone Layout",
+                            "Preset used by FancyZones overlay and quick-snap shortcuts", ZONE_PRESETS))
+    fz_group.add(spin_row(store, mid, "zone_gap", "Zone Padding / Gap (px)",
+                          "Spacing around and between window zones", 0, 48, 2))
+    fz_group.add(shortcut_row(store, mid, "fancyzones_hotkey", "Zone Overlay Shortcut",
+                              "Open the interactive FancyZones picker overlay"))
+    fz_group.add(shortcut_row(store, mid, "snap_left_hotkey", "Snap to Left / Primary Zone",
+                              "Snap active window to Zone 1"))
+    fz_group.add(shortcut_row(store, mid, "snap_right_hotkey", "Snap to Right / Secondary Zone",
+                              "Snap active window to Zone 2"))
+    fz_group.add(shortcut_row(store, mid, "maximize_hotkey", "Window Maximize Shortcut",
+                              "Maximize window to fill active screen area cleanly"))
+    fz_group.add(button_row("Zone Layout Editor", "Open FancyZones",
+                            lambda: launch.knobu("fancyzones"),
+                            "Launch interactive visual zone grid"))
+    fz_group.add(button_row("Maximize Window", "Maximize Active",
+                            lambda: maximize_active_window(),
+                            "Fill active monitor cleanly without fullscreen displacement"))
+    page.add(fz_group)
+
+    return page
+
+
+def sysmon_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    mid = SystemMonitorModule.id
+    page = ModulePage(store, SystemMonitorModule)
+
+    live_group = Adw.PreferencesGroup(
+        title="Live Hardware Metrics",
+        description="Real-time CPU, per-core load, memory pressure, thermal sensors, and network throughput.",
+    )
+    cpu_row = Adw.ActionRow(use_markup=False, title="CPU Load", subtitle="Measuring...")
+    mem_row = Adw.ActionRow(use_markup=False, title="Memory Usage", subtitle="Measuring...")
+    temp_row = Adw.ActionRow(use_markup=False, title="Thermal Peak", subtitle="Measuring...")
+    net_row = Adw.ActionRow(use_markup=False, title="Network Throughput", subtitle="Measuring...")
+    bat_row = Adw.ActionRow(use_markup=False, title="Power and Battery", subtitle="Measuring...")
+
+    def refresh_metrics(*_args) -> None:
+        def worker():
+            m = collect_metrics(sample_sec=0.15)
+            cores_str = " ".join(f"{c:.0f}%" for c in m.per_core[:8])
+            GLib.idle_add(lambda: (
+                cpu_row.set_subtitle(f"{m.cpu_percent:.1f}% (Cores: {cores_str})"),
+                mem_row.set_subtitle(f"{m.mem_used_gb:.2f} / {m.mem_total_gb:.2f} GB ({m.mem_percent:.1f}%)"),
+                temp_row.set_subtitle(f"{m.max_temp_c:.1f} °C"),
+                net_row.set_subtitle(f"Down: {m.net_rx_kbps:.1f} KB/s · Up: {m.net_tx_kbps:.1f} KB/s"),
+                bat_row.set_subtitle(f"{m.battery_percent}% ({'AC Connected' if m.ac_online else 'Discharging'})"),
+                False,
+            )[-1])
+        threading.Thread(target=worker, daemon=True).start()
+
+    ref_row = Adw.ActionRow(use_markup=False, title="Sample Hardware", subtitle="Re-poll live CPU, RAM, and sensors")
+    ref_b = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    ref_b.connect("clicked", refresh_metrics)
+    ref_row.add_suffix(ref_b)
+
+    for r in (cpu_row, mem_row, temp_row, net_row, bat_row, ref_row):
+        live_group.add(r)
+    refresh_metrics()
+    page.add(live_group)
+
+    alert_group = Adw.PreferencesGroup(
+        title="Health Alerts and Tray Metrics",
+        description="Configure hardware alert thresholds and top tray RAM readout.",
+    )
+    alert_group.add(switch_row(store, mid, "top_bar_metrics", "Show Metrics in Tray Header",
+                               "Display live RAM percentage in the top notification tray status line"))
+    alert_group.add(switch_row(store, mid, "alerts_enabled", "Enable Hardware Health Alerts",
+                               "Send desktop alerts for sustained CPU load, high memory pressure, or low battery"))
+    alert_group.add(spin_row(store, mid, "cpu_alert_percent", "CPU Alert Threshold (%)",
+                             "Trigger alert when sustained CPU load exceeds this percentage", 50, 99, 5))
+    alert_group.add(spin_row(store, mid, "mem_alert_percent", "Memory Alert Threshold (%)",
+                             "Trigger alert when RAM usage exceeds this percentage", 60, 99, 5))
+    alert_group.add(spin_row(store, mid, "battery_alert_percent", "Low Battery Alert (%)",
+                             "Trigger alert when discharging below this battery percentage", 5, 40, 5))
+    page.add(alert_group)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
@@ -1909,6 +2116,9 @@ PAGES = [
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
     (NotificationsModule.id, NotificationsModule.name, NotificationsModule.icon, notifications_page, "modules"),
+    (SoundSuiteModule.id, SoundSuiteModule.name, SoundSuiteModule.icon, sound_page, "modules"),
+    (WindowModule.id, WindowModule.name, WindowModule.icon, windows_page, "modules"),
+    (SystemMonitorModule.id, SystemMonitorModule.name, SystemMonitorModule.icon, sysmon_page, "modules"),
     (AutomationModule.id, AutomationModule.name, AutomationModule.icon, automation_page, "modules"),
     (PowerToolsModule.id, PowerToolsModule.name, PowerToolsModule.icon, powertools_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,

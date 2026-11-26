@@ -11,11 +11,15 @@ from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
 from knobu.modules.notifications import NotificationsModule
 from knobu.modules.powertools import PowerToolsModule
+from knobu.modules.sound import SoundSuiteModule
+from knobu.modules.sysmon import SystemMonitorModule
 from knobu.modules.touchpad import TouchpadModule
+from knobu.modules.windows import WindowModule
 
 MODULES: list[type[Module]] = [
     TouchpadModule, KeyboardModule, MouseModule, AwakeModule, ClipboardModule, CommandBarModule,
-    NotificationsModule, AutomationModule, PowerToolsModule, ColorPickerModule, TextExtractorModule,
+    NotificationsModule, SoundSuiteModule, WindowModule, SystemMonitorModule, AutomationModule,
+    PowerToolsModule, ColorPickerModule, TextExtractorModule,
 ]
 
 

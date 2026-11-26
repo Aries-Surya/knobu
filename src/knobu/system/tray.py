@@ -360,6 +360,14 @@ class StatusTray:
         status_lbl = f"Knobu · {'Bypassed' if bypassed else 'Active'}"
         if awake_on:
             status_lbl += " · Awake"
+        if bool(cfg.get("sysmon", {}).get("top_bar_metrics", True)):
+            try:
+                from knobu.modules.sysmon import parse_meminfo
+                from pathlib import Path
+                _u, _t, mem_pct = parse_meminfo(Path("/proc/meminfo").read_text(encoding="utf-8"))
+                status_lbl += f" · RAM {mem_pct:.0f}%"
+            except Exception:
+                pass
 
         conn_prefix = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "tun": "VPN"}.get(net.connection_type, "Network")
         net_label = f"Connection: {conn_prefix} ({net.connection_name})"
@@ -440,6 +448,8 @@ class StatusTray:
                 item(308, "Shortcut Guide (Super+Shift+?)", action=lambda: launch.knobu("shortcut-guide")),
                 item(309, "ZoomIt Annotate (Super+Alt+Z)", action=lambda: launch.knobu("zoomit")),
                 item(310, "Quick Accent", action=lambda: launch.knobu("quick-accent")),
+                item(311, "FancyZones Overlay (Super+Shift+`)", action=lambda: launch.knobu("fancyzones")),
+                item(312, "Always on Top (Super+Ctrl+T)", action=lambda: launch.knobu("always-on-top")),
             ]),
             item(40, f"Notifications ({len(recent_notifs)})", children=notif_children),
             item(41, item_type="separator"),
