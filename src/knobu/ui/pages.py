@@ -24,6 +24,7 @@ from knobu.modules.commandbar import (
 from knobu.modules.hotkey_tools import ColorPickerModule, TextExtractorModule
 from knobu.modules.keyboard import KeyboardModule
 from knobu.modules.mouse import MouseModule
+from knobu.modules.notifications import NotificationsModule
 from knobu.modules.powertools import PowerToolsModule
 from knobu.modules.touchpad import GESTURE_ACTIONS, TAP_ACTIONS, TouchpadModule
 from knobu.system import keys, launch, permissions
@@ -110,6 +111,8 @@ def module_summary(store: SettingsStore, module_id: str) -> Gtk.Widget:
         return keycaps(hotkey) if hotkey else text("Alt+Space")
     if module_id == AwakeModule.id:
         return text(awake_status(store))
+    if module_id == NotificationsModule.id:
+        return text("Top tray IP and AWS status · Mac-style notifications")
     if module_id in (ClipboardModule.id, PowerToolsModule.id, ColorPickerModule.id, TextExtractorModule.id):
         hotkey = store.get(module_id, "hotkey", "")
         return keycaps(hotkey) if hotkey else text("")
@@ -1254,6 +1257,83 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
+def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.notifications.store import NotificationHistory
+    from knobu.modules.powertools.aws_cli import get_active_aws_profile, load_aws_profiles, set_active_aws_profile
+    from knobu.modules.powertools.network import fetch_public_ip, get_network_status
+
+    mid = NotificationsModule.id
+    page = ModulePage(store, NotificationsModule)
+
+    tray_group = Adw.PreferencesGroup(
+        title="Top Notification Tray and HUD",
+        description="Display Knobu in your top bar with quick toggles, IP status, AWS profile switcher, and alerts.",
+    )
+    tray_group.add(switch_row(store, mid, "show_tray", "Show Top Notification Tray Icon",
+                              "Publish StatusNotifierItem dropdown menu for GNOME AppIndicator and KDE Plasma"))
+    tray_group.add(switch_row(store, mid, "show_public_ip", "Show Public IP in Tray Menu",
+                              "Fetch and display your current public IPv4 address with 1-click copy"))
+    tray_group.add(switch_row(store, mid, "show_hud", "Enable Mac-Style HUD Capsule",
+                              "Display compact Dynamic Island floating banner on incoming desktop notifications"))
+    tray_group.add(switch_row(store, mid, "dnd", "Do Not Disturb",
+                              "Still record incoming notifications while suppressing floating HUD banners"))
+    page.add(tray_group)
+
+    net = get_network_status()
+    net_group = Adw.PreferencesGroup(
+        title="Live Network and AWS CLI Status",
+        description="Same live readout shown in your top notification tray dropdown.",
+    )
+    net_group.add(Adw.ActionRow(use_markup=False, title=f"Connection ({net.connection_type or 'network'})",
+                                subtitle=f"{net.connection_name}" + (f" · VPN {net.vpn_ip}" if net.vpn_ip else "")))
+    net_group.add(Adw.ActionRow(use_markup=False, title="Private IP", subtitle=net.private_ip))
+    pub_row = Adw.ActionRow(use_markup=False, title="Public IP", subtitle="Click Fetch to query")
+    pub_btn = Gtk.Button(label="Fetch", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    def on_pub(_b):
+        _b.set_sensitive(False)
+        pub_row.set_subtitle("Fetching...")
+        def w():
+            ip = fetch_public_ip() or "Offline"
+            GLib.idle_add(lambda: (pub_row.set_subtitle(ip), _b.set_sensitive(True), False)[2])
+        threading.Thread(target=w, daemon=True).start()
+    pub_btn.connect("clicked", on_pub)
+    pub_row.add_suffix(pub_btn)
+    net_group.add(pub_row)
+
+    active_aws = get_active_aws_profile()
+    profiles = load_aws_profiles()
+    aws_row = Adw.ActionRow(use_markup=False, title="Active AWS CLI Profile",
+                            subtitle=f"{active_aws} ({len(profiles)} configured in ~/.aws)")
+    if profiles:
+        names = [p.name for p in profiles]
+        sel = Adw.ComboRow(use_markup=False, title="Switch Active AWS Profile",
+                           model=Gtk.StringList.new(names))
+        if active_aws in names:
+            sel.set_selected(names.index(active_aws))
+        def on_aws_sel(r, _p):
+            chosen = profiles[r.get_selected()]
+            ok, msg = set_active_aws_profile(chosen.name, chosen.region)
+            aws_row.set_subtitle(f"{chosen.name} — {msg}" if ok else msg)
+        sel.connect("notify::selected", on_aws_sel)
+        net_group.add(aws_row)
+        net_group.add(sel)
+    else:
+        net_group.add(aws_row)
+    page.add(net_group)
+
+    hist = NotificationHistory()
+    hist_group = Adw.PreferencesGroup(title="Notification Center")
+    hist_row = Adw.ActionRow(use_markup=False, title="Recorded Notifications",
+                             subtitle=f"{hist.count()} notification(s) saved")
+    open_btn = Gtk.Button(label="Open Drawer", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    open_btn.connect("clicked", lambda _b: launch.knobu("notifications"))
+    hist_row.add_suffix(open_btn)
+    hist_group.add(hist_row)
+    page.add(hist_group)
+
+    return page
+
+
 # (id, title, icon, builder, section). Add new module pages here.
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
@@ -1263,6 +1343,7 @@ PAGES = [
     (AwakeModule.id, AwakeModule.name, AwakeModule.icon, awake_page, "modules"),
     (ClipboardModule.id, ClipboardModule.name, ClipboardModule.icon, clipboard_page, "modules"),
     (CommandBarModule.id, CommandBarModule.name, CommandBarModule.icon, commandbar_page, "modules"),
+    (NotificationsModule.id, NotificationsModule.name, NotificationsModule.icon, notifications_page, "modules"),
     (PowerToolsModule.id, PowerToolsModule.name, PowerToolsModule.icon, powertools_page, "modules"),
     (ColorPickerModule.id, ColorPickerModule.name, ColorPickerModule.icon, colorpicker_page,
      "modules"),

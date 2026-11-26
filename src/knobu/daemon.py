@@ -27,10 +27,11 @@ class Daemon:
         from knobu.system import hotkeys
         hotkeys.service().set_bypass(bypass_all)
         if bypass_all:
-            log.info("Bypass Mode is ACTIVE: all hardware grabs and customizations suspended")
-            return
+            log.info("Bypass Mode is ACTIVE: hardware grabs suspended (tray remains active)")
 
         for cls in MODULES:
+            if bypass_all and cls.id != "notifications":
+                continue
             settings = config.module_settings(data, cls.id, cls.defaults)
             if settings["enabled"]:
                 module = cls(settings)

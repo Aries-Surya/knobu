@@ -71,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Top Bar Status Tray, IP/AWS Readout & Mac-Style Notifications (`src/knobu/system/tray.py`, `src/knobu/modules/notifications/`, `src/knobu/ui/hud.py`)**:
+  - Native `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` tray icon compatible with Ubuntu GNOME AppIndicator and KDE Plasma 6.
+  - Live tray dropdown displaying current Wi-Fi/Ethernet/VPN connection, **Private IP**, **Public IP** (1-click copy + refresh), **Active AWS CLI profile** quick-switcher, Master Bypass toggle, Awake presets, Do Not Disturb, and Quick Tool launchers.
+  - Passive D-Bus `BecomeMonitor` listener capturing desktop notifications into a Mac-style Notification Center drawer (`knobu notifications`) and optional floating Dynamic Island HUD capsule.
 - **Power Tools & System Maintenance (`src/knobu/modules/powertools/`, `src/knobu/ui/cleaning.py`)**:
   - **Port Manager**: Inspect active listening TCP/UDP ports via `ss -tulpn` with search filtering and 1-click process termination (plus `knobu ports` CLI).
   - **Hardware Cleaning Mode (`Super+Alt+K` / `knobu cleaning-mode`)**: Fullscreen overlay that grabs physical keyboards, mice, and touchpads via `evdev` for safe wiping, featuring an auto-unlock countdown timer and 2-second `Esc` hold exit.

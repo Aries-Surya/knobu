@@ -80,6 +80,8 @@ def main() -> None:
     sub.add_parser("cleaning-mode", help="lock keyboard, mouse, and touchpad inputs for cleaning")
     sub.add_parser("screen-ruler", help="measure pixel dimensions and spacing on screen")
     sub.add_parser("find-mouse", help="spotlight pointer location on screen")
+    p_notif = sub.add_parser("notifications", help="open Notification Center or toast")
+    p_notif.add_argument("--toast", type=int, default=None, help=argparse.SUPPRESS)
     sub.add_parser("ports", help="list listening TCP/UDP ports")
     p_bp = sub.add_parser("bypass", help="temporarily bypass all hardware grabs and customizations (e.g. for gaming)")
     p_bp.add_argument("state", nargs="?", default="status", choices=["on", "off", "toggle", "status"],
@@ -137,6 +139,9 @@ def main() -> None:
     elif args.command == "find-mouse":
         from knobu.ui.pointer_fx import main as pointer_main
         sys.exit(pointer_main())
+    elif args.command == "notifications":
+        from knobu.ui.hud import main as hud_main
+        sys.exit(hud_main(["--toast", str(args.toast)] if args.toast is not None else []))
     elif args.command == "ports":
         from knobu.modules.powertools import list_listening_ports
         for p in list_listening_ports():

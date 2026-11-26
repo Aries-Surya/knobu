@@ -38,6 +38,7 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 | Tool | What it does |
 |---|---|
 | 🔍 **Command Bar** | Alt+Space floating launcher (PowerToys Run for Linux): search apps, calculate math, run shell commands, paths & web |
+| 🔔 **Top Tray & Notifications** | System tray dropdown showing Wi-Fi/VPN, Private & Public IP (copy), active AWS CLI profile switcher, and Mac-style Notification Center |
 | 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, and tracking URL sanitization |
 | 🖐️ **Touchpad Gestures** | Slide three fingers to change the volume, tap to mute or play/pause |
 | ⌨️ **Keyboard Manager** | Remap keys and shortcuts (CapsLock → Ctrl, Super+E → terminal) in every app |
@@ -295,6 +296,7 @@ python3 -m venv --system-site-packages .venv
 | `knobu cleaning-mode` | Lock keyboard, mouse, and touchpad inputs for safe hardware cleaning |
 | `knobu screen-ruler` | Measure pixel distances and bounding boxes on screen |
 | `knobu find-mouse` | Spotlight cursor location on screen |
+| `knobu notifications` | Open the Mac-style Notification Center drawer |
 | `knobu ports` | Print listening TCP/UDP ports and PIDs in the terminal |
 | `knobu bypass on\|off\|toggle` | Temporarily bypass all hardware grabs and customizations (gaming / passthrough mode) |
 | `knobu restore-os-shortcuts` | Restore default OS shortcuts overridden by Knobu (GNOME / KDE) |

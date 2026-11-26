@@ -4,16 +4,17 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 1: Top Bar HUD, Notifications & Status Tray 🔔
+## Milestone 1: Top Bar HUD, Notifications & Status Tray 🔔 ✅
 
 *Inspired by Vorssaint Dynamic Island & Menu Bar Status Controller*
 
-- [ ] **Top Bar Status Tray & Configuration Dropdown**:
+- [X] **Top Bar Status Tray & Configuration Dropdown**:
   - Native `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` provider over `Gio.DBus` (works on Ubuntu GNOME AppIndicator and KDE Plasma tray with zero extra dependencies).
-  - Left/right-clicking the tray icon opens a live dropdown menu with service status, Master Bypass toggle, Awake presets, Cleaning Mode trigger, direct launchers (Command Bar, Clipboard, Always on Top, Power Tools), recent notifications summary, and Open Settings / Quit.
-- [ ] **Mac-Style Notification HUD & Dynamic Island**:
+  - **Live Network & Cloud Status in Tray**: Displays active connection name (Wi-Fi SSID / Ethernet / VPN), **Private IP**, **Public IP** (1-click copy + auto-refresh), and currently active **AWS CLI profile + region** with a quick-switch submenu.
+  - Opens a live configuration dropdown with service status, Master Bypass toggle, Awake presets, Cleaning Mode trigger, direct launchers (Command Bar, Clipboard, Screen Ruler, Always on Top, Power Tools), recent notifications, and Open Settings / Reload.
+- [X] **Mac-Style Notification HUD & Dynamic Island**:
   - Non-intrusive D-Bus eavesdropping on `org.freedesktop.Notifications` to capture incoming desktop notifications.
-  - Compact floating top-bar notification capsule + expandable **Notification Drawer** inside the tray/HUD with timestamps, app icon, quick actions, Do Not Disturb toggle, and "Clear All".
+  - Compact floating top-bar notification capsule + expandable **Notification Drawer** (`knobu notifications`) with timestamps, app icon, Do Not Disturb toggle, and "Clear All".
 - [X] **CI/CD Pipeline**: Automated Debian package build (`.deb`), automated testing, and GitHub release deployment.
 
 ---
@@ -151,3 +152,52 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
   - **Screen Ruler (`Super+Shift+M`)**: Capture silent screenshot (`capture.py`) and measure pixel distances, spacing guides, and bounding boxes with copy-to-clipboard.
   - **File Locksmith**: Inspect processes holding open file descriptors on any chosen file or directory (`/proc/*/fd`) with 1-click process termination.
   - **Image Resizer**: Batch scale presets (`Small`, `Medium`, `Large`, `50%`) integrated into Media Tools.
+
+---
+
+## Milestone 10: Cloud, Networking & AWS DevOps Toolkit ☁️🌐
+
+*Tailored for Cloud & DevOps Engineers (AWS CLI, Network Diagnostics, Docker & Kubernetes Contexts)*
+
+- [ ] **Network & IP Inspector**:
+  - Live detection of active Wi-Fi SSID / Ethernet / VPN (`nmcli` + `ip -j`), Private IPv4/IPv6, Gateway, DNS servers, and cached Public IP (with tray readout & 1-click copy).
+- [ ] **In-App Networking Diagnostics**:
+  - **DNS Lookup**: Query `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `NS` records via `dig` with custom resolver selector (`1.1.1.1`, `8.8.8.8`, system).
+  - **SSL/TLS Certificate Inspector**: Check expiry countdown days, issuer, and SANs for any `host:port` via `openssl s_client`.
+  - **TCP Port Ping, MTR & HTTP Timing**: Check `host:port` reachability latency, `mtr` route trace, `curl` TTFB/TLS timing breakdown, and pure-Python CIDR subnet calculator.
+- [ ] **AWS CLI Configuration & Active Profile Manager**:
+  - Parse `~/.aws/config` & `~/.aws/credentials` (masked secrets), display the **currently active `AWS_PROFILE` & region**, and inspect SSO/role configuration.
+  - **1-Click Profile Switcher** (Settings UI + Tray Menu): updates `AWS_PROFILE` & `AWS_DEFAULT_REGION` via `~/.config/environment.d/90-knobu.conf` + `systemctl --user set-environment`.
+  - **Live Identity & SSO**: Verify credentials via `aws sts get-caller-identity` (Account ID & ARN) and launch `aws sso login --profile <name>`.
+- [ ] **Container & Infra Context Quick View**:
+  - View/switch active `kubectl` context (`kubectl config current-context`) and view running `docker ps` containers with 1-click stop/logs.
+
+---
+
+## Milestone 11: Rule-Based Automation Engine (Mac Shortcuts Style) ⚡
+
+*Inspired by macOS Shortcuts, Automator & AppleScript Triggers ("When X happens -> Do Y")*
+
+- [ ] **Trigger Listeners (Daemon-Integrated)**:
+  - Network/Wi-Fi SSID change, USB/Bluetooth/Monitor event, Power/Battery threshold, Active App/Window launch, Downloads/Screenshots folder watcher (`Gio.FileMonitor`), and Cron/Time schedules.
+- [ ] **Conditional Actions**:
+  - Chain multiple actions: switch AWS/Env profile, toggle Master Bypass (gaming), toggle Awake, switch Light/Dark theme, launch Workspace app group, run shell script, or send notification.
+- [ ] **Automation Builder UI**:
+  - Visual "When [Trigger] -> If [Condition] -> Then [Action]" rule editor with enable/disable switches, execution history log, and "Test Run" button.
+
+---
+
+## Milestone 12: Extended Microsoft PowerToys for Linux 🧩
+
+*Remaining high-value PowerToys utilities adapted cleanly for Wayland & X11*
+
+- [ ] **Advanced Paste (Clipboard Transforms)**:
+  - Format JSON, strip formatting, Base64 encode/decode, URL decode, and convert casing (`snake_case` / `camelCase` / `UPPER`) directly inside `Super+V` Clipboard History.
+- [ ] **Light Switch (Auto Dark/Light Theme)**:
+  - Switch GNOME (`color-scheme`) / KDE (`plasma-apply-colorscheme`) theme automatically by schedule or sunrise/sunset.
+- [ ] **Shortcut Guide (`Super+Shift+?`)**:
+  - Interactive cheat-sheet overlay listing all configured Knobu and desktop shortcuts.
+- [ ] **Workspaces Launcher**:
+  - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click.
+- [ ] **ZoomIt & Quick Accent**:
+  - Screen freeze-zoom & quick pen/arrow/box annotation over `capture_screen()`, plus accent-character popup and Mouse Button Lock / CursorHide while typing.
