@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import cairo
 import gi
 gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk
+import cairo
 
 from knobu import APP_ID, config
 from knobu.modules.windows import WindowModule, compute_zones, snap_active_window

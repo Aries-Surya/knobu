@@ -13,7 +13,7 @@ from knobu.modules.windows.zones import (
     snap_active_window,
     toggle_always_on_top,
 )
-from knobu.system import hotkeys, keys, launch, notify, osd
+from knobu.system import hotkeys, keys, launch, notify
 
 __all__ = [
     "WindowModule",
@@ -74,8 +74,8 @@ class WindowModule(Module):
                 hotkeys.service().unregister(b)
 
     def _on_top(self, excluded: list[str]) -> None:
-        ok, msg = toggle_always_on_top(excluded)
-        osd.show("view-pin-symbolic", msg) if ok else notify.notify("Always on Top", msg, timeout_ms=2000)
+        _ok, msg = toggle_always_on_top(excluded)
+        notify.notify("Always on Top", msg, timeout_ms=2000)
 
     def _snap(self, idx: int, preset: str, gap: int) -> None:
         ok, msg = snap_active_window(idx, preset, gap)

@@ -183,10 +183,13 @@ class ZoomItApp(ToolApp):
     suffix = "zoomit"
 
     def do_activate(self):
-        pixbuf = capture_screen()
+        self.hold()
+        capture_screen(self._on_screen)
+
+    def _on_screen(self, pixbuf):
         if not pixbuf:
             notify.notify("ZoomIt", "Could not capture screen for ZoomIt.", timeout_ms=2500)
-        ZoomItOverlay(self, pixbuf, lambda: None)
+        ZoomItOverlay(self, pixbuf, self.release)
 
 
 def main() -> int:

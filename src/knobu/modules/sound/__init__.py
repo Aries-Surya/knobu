@@ -9,7 +9,7 @@ import subprocess
 import threading
 
 from knobu.modules.base import Module
-from knobu.system import hotkeys, keys, launch, notify, osd
+from knobu.system import hotkeys, keys, launch, notify
 
 
 @dataclass(frozen=True)
@@ -198,9 +198,8 @@ class SoundSuiteModule(Module):
                 hotkeys.service().unregister(b)
 
     def _on_mic_mute(self) -> None:
-        ok, msg = toggle_mic_mute()
-        if ok:
-            osd.show("audio-input-microphone-muted-symbolic" if "Muted" in msg else "audio-input-microphone-symbolic", msg)
+        _ok, msg = toggle_mic_mute()
+        notify.notify("Microphone", msg, timeout_ms=2000)
 
     def _on_switch_output(self) -> None:
         ok, msg = cycle_output_sink()

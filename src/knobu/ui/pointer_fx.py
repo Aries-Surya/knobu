@@ -11,13 +11,13 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk
 
-from knobu.modules.commandbar.os_shortcuts import is_gnome
 from knobu.ui.capture import capture_screen, desktop_layout
 from knobu.ui.tools import ToolApp
 
 
 def sync_gnome_locate_pointer(enabled: bool) -> bool:
     """Sync GNOME native Ctrl pointer-locator ring (`locate-pointer`)."""
+    from knobu.modules.commandbar.os_shortcuts import is_gnome
     if not is_gnome():
         return False
     try:
