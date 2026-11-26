@@ -5,6 +5,42 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/Aries-Surya/knobu/compare/v0.4.0...v0.5.0) (2026-11-26)
+
+
+### Features
+
+* Complete Knobu PowerToys & DevOps Suite (Milestones 1, 2, 5, 7, 8, 9, 10, 11, 12) ([f4eecfe](https://github.com/Aries-Surya/knobu/commit/f4eecfece45aa33f3decec4eb637232e8ad06835))
+* **config:** add JSON backup and restore via CLI and General settings UI ([30d6e2a](https://github.com/Aries-Surya/knobu/commit/30d6e2a9c419271935d6c1bfbe001bde977c27de))
+* **devops:** create separate DevOps on Cloud category with local Cron Jobs manager ([74b80b5](https://github.com/Aries-Surya/knobu/commit/74b80b5b29b64040e7e09cd36d7a83e020cf7ff9))
+* **devops:** implement Milestone 10 Cloud, Networking & AWS DevOps toolkit ([b23dbd6](https://github.com/Aries-Surya/knobu/commit/b23dbd6b585554a10bbebbc9c298cc79a2873960))
+* implement Milestone 11 (Automations) and Milestone 12 (Extended PowerToys) ([ff53f88](https://github.com/Aries-Surya/knobu/commit/ff53f8804ce201d227523b3d8aba8d183fe1f63f))
+* implement Milestone 2 (Sound Suite), Milestone 5 (Window Manager), and Milestone 7 (System Monitor) ([cb6a286](https://github.com/Aries-Surya/knobu/commit/cb6a2866d3f05ea1afa8ee534f7bf9baeaa66d3b))
+* **powertools:** add Milestone 8 Port Manager, Cleaning Mode, Cleaner & Uninstaller, and FFmpeg Media Tools ([98a4f9a](https://github.com/Aries-Surya/knobu/commit/98a4f9ab3a5ee937a9b2bd9dec2958e4c07a9a1c))
+* **powertools:** implement Milestone 9 EnvVars, Hosts Editor, Screen Ruler, File Locksmith, Image Resizer, and Find My Mouse ([720c4f3](https://github.com/Aries-Surya/knobu/commit/720c4f3424b4957cb91a1e0ef434985e127cbad8))
+* **powertools:** support APT, Snap, Flatpak, Brew, Pipx, NPM, and Cargo in Package Uninstaller ([f3a5ed9](https://github.com/Aries-Surya/knobu/commit/f3a5ed98087b962791400e28c65597a9d64ef9d5))
+* **tray:** add Milestone 1 Top Notification Tray with live Private/Public IP, AWS Profile switcher & Notification HUD ([3681425](https://github.com/Aries-Surya/knobu/commit/3681425ec12fc4cdf6b215f8f5f82f21e28dc48f))
+* **tray:** inline IP refresh-and-copy actions without separate bottom refresh row ([d95d015](https://github.com/Aries-Surya/knobu/commit/d95d01592b4d009074ec9c52388e41ac7b510298))
+* **tray:** separate copy and refresh IP actions and add VPN IP/service detection ([e5a9a7d](https://github.com/Aries-Surya/knobu/commit/e5a9a7d34767e8d3393a52c1a41b7e164b7f116d))
+
+
+### Bug Fixes
+
+* **ci:** handle headless runners in UI page tests and fix mock patch import ([1392d79](https://github.com/Aries-Surya/knobu/commit/1392d7997553ceb5cac4b9fd0cab44224a582d3e))
+* **ci:** install python3-gi-cairo in CI and Build-Depends ([9e57b11](https://github.com/Aries-Surya/knobu/commit/9e57b1105adf3aa86770a27a7ba719fce58a6499))
+* resolve circular imports, missing osd.show, zoomit capture_screen callback, and python3-gi-cairo dep ([0c74996](https://github.com/Aries-Surya/knobu/commit/0c74996a87d293fbe29caf3fca7864d655bd8c96))
+* **tray:** return GLib.Variant tuple in DBusMenu GetLayout without recursive unpack ([aa4db7a](https://github.com/Aries-Surya/knobu/commit/aa4db7a3d305dd924e1093dafff33f532126334f))
+* **tray:** stabilize dbusmenu IDs, fix circular import, and keep tray alive across config reloads ([d833a3a](https://github.com/Aries-Surya/knobu/commit/d833a3a3250c34475cc1d76fd4da760e1f920ed5))
+* **tray:** use symbolic icons without emojis and auto-refresh on menu open ([a3f2c13](https://github.com/Aries-Surya/knobu/commit/a3f2c13ba9916b1d730852dc4abca224b46a2cbe))
+* **ui:** remove unescaped ampersand in Public IP subtitle ([68c5fd7](https://github.com/Aries-Surya/knobu/commit/68c5fd798f05cd00121aaddaa57ff3bb4421df89))
+* **windows:** use valid focus-windows-symbolic icon for Window Manager ([902cc9f](https://github.com/Aries-Surya/knobu/commit/902cc9f3d6c7c9086bc9494cd35a34802d0d6538))
+
+
+### Documentation
+
+* add comprehensive end-to-end user manual ([7a25f90](https://github.com/Aries-Surya/knobu/commit/7a25f90a67c155a71b227c565ac07328bdd75881))
+* sync ROADMAP, README, CHANGELOG, and man pages with all completed milestones ([aeba61f](https://github.com/Aries-Surya/knobu/commit/aeba61f6e73a9efbdf95397667f468f159a5de23))
+
 ## [0.5.0] (2026-11-26)
 
 ### Features
