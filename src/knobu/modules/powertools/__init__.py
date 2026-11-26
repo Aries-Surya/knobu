@@ -48,6 +48,23 @@ from knobu.modules.powertools.media import (
     resize_images,
     video_to_gif,
 )
+from knobu.modules.powertools.devops import (
+    ContainerInfo,
+    DnsRecord,
+    HttpTimingResult,
+    SslCertInfo,
+    SubnetCalculation,
+    calculate_cidr,
+    get_aws_caller_identity,
+    get_docker_containers,
+    get_kube_contexts,
+    http_timing_probe,
+    inspect_ssl_cert,
+    query_dns,
+    stop_docker_container,
+    switch_kube_context,
+    tcp_ping,
+)
 from knobu.modules.powertools.ports import (
     PortEntry,
     kill_process,
@@ -68,6 +85,11 @@ __all__ = [
     "IMAGE_FORMATS", "IMAGE_RESIZE_PRESETS", "ffmpeg_available", "build_compress_cmd",
     "build_gif_cmd", "build_image_convert_cmd", "build_image_resize_cmd",
     "compress_video", "video_to_gif", "convert_images", "resize_images",
+    "DnsRecord", "query_dns", "SslCertInfo", "inspect_ssl_cert",
+    "tcp_ping", "HttpTimingResult", "http_timing_probe",
+    "SubnetCalculation", "calculate_cidr",
+    "ContainerInfo", "get_docker_containers", "stop_docker_container",
+    "get_kube_contexts", "switch_kube_context", "get_aws_caller_identity",
 ]
 
 

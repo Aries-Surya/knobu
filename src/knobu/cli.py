@@ -91,6 +91,17 @@ def main() -> None:
     p_backup.add_argument("file", nargs="?", default=None, help="destination JSON path (default: ~/.config/knobu/knobu-backup.json)")
     p_restore = sub.add_parser("restore", help="restore Knobu configurations from a JSON backup file")
     p_restore.add_argument("file", help="path to source JSON backup file")
+    p_dns = sub.add_parser("dns", help="query DNS records (A, AAAA, CNAME, MX, TXT)")
+    p_dns.add_argument("domain", help="domain to query")
+    p_dns.add_argument("type", nargs="?", default="A", help="record type (default: A)")
+    p_dns.add_argument("--server", default="", help="custom resolver (e.g. 1.1.1.1 or 8.8.8.8)")
+    p_ssl = sub.add_parser("ssl-check", help="inspect SSL/TLS certificate expiry, issuer, and SANs")
+    p_ssl.add_argument("host", help="hostname to inspect (e.g. google.com or host:port)")
+    p_ssl.add_argument("port", nargs="?", type=int, default=443, help="port (default: 443)")
+    p_cidr = sub.add_parser("cidr", help="calculate IPv4/IPv6 CIDR network range and usable hosts")
+    p_cidr.add_argument("prefix", help="CIDR prefix (e.g. 192.168.1.0/24 or 10.0.0.0/16)")
+    sub.add_parser("aws-whoami", help="display active AWS caller identity (Account ID, ARN, UserId)")
+    sub.add_parser("containers", help="list Docker containers status and ports")
     args = parser.parse_args()
 
     if args.command == "daemon":
@@ -177,6 +188,59 @@ def main() -> None:
         except Exception as err:
             print(f"Failed to restore configuration: {err}", file=sys.stderr)
             sys.exit(1)
+    elif args.command == "dns":
+        from knobu.modules.powertools.devops import query_dns
+        ok, records, msg = query_dns(args.domain, args.type, args.server)
+        if not ok:
+            print(f"DNS lookup error: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"DNS {args.type.upper()} records for {args.domain}:")
+        for r in records:
+            print(f"  {r.name:<32} {r.record_type:<6} {r.value:<32} (TTL {r.ttl}s)")
+    elif args.command == "ssl-check":
+        from knobu.modules.powertools.devops import inspect_ssl_cert
+        info = inspect_ssl_cert(args.host, args.port)
+        if not info.is_valid and info.error:
+            print(f"SSL certificate check failed for {args.host}:{info.port}: {info.error}", file=sys.stderr)
+            sys.exit(1)
+        print(f"SSL Certificate for {info.host}:{info.port}:")
+        print(f"  Issuer:      {info.issuer}")
+        print(f"  Expires:     {info.expiry_date} ({info.days_left} day(s) remaining)")
+        print(f"  Status:      {'VALID' if info.days_left >= 0 else 'EXPIRED'}")
+        if info.sans:
+            print(f"  SANs:        {', '.join(info.sans[:8])}")
+    elif args.command == "cidr":
+        from knobu.modules.powertools.devops import calculate_cidr
+        ok, c, msg = calculate_cidr(args.prefix)
+        if not ok or not c:
+            print(f"CIDR calculation error: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"CIDR Network: {c.cidr}")
+        print(f"  Network Address:   {c.network_address}")
+        print(f"  Netmask:           {c.netmask}")
+        print(f"  Broadcast Address: {c.broadcast_address}")
+        print(f"  Total IPs:         {c.total_ips:,}")
+        print(f"  Usable Hosts:      {c.usable_hosts:,}")
+        print(f"  Host Range:        {c.first_host} -> {c.last_host}")
+    elif args.command == "aws-whoami":
+        from knobu.modules.powertools.devops import get_aws_caller_identity
+        ident = get_aws_caller_identity()
+        if "error" in ident:
+            print(f"AWS identity error: {ident['error']}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Active AWS Identity:")
+        print(f"  Account ID: {ident.get('Account')}")
+        print(f"  ARN:        {ident.get('Arn')}")
+        print(f"  UserId:     {ident.get('UserId')}")
+    elif args.command == "containers":
+        from knobu.modules.powertools.devops import get_docker_containers
+        conts = get_docker_containers()
+        if not conts:
+            print("No active Docker containers found (or Docker daemon not running).")
+        else:
+            print(f"{'CONTAINER ID':<14} {'NAME':<20} {'IMAGE':<24} {'STATUS':<16} {'PORTS'}")
+            for c in conts:
+                print(f"{c.id:<14} {c.name[:19]:<20} {c.image[:23]:<24} {c.status[:15]:<16} {c.ports}")
     else:
         from knobu.ui.app import main as ui_main
         sys.exit(ui_main(sys.argv[:1]))

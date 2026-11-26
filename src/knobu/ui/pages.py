@@ -1449,7 +1449,145 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
         net_group.add(sel)
     else:
         net_group.add(aws_row)
+
+    # AWS Identity & Verification
+    from knobu.modules.powertools.devops import (
+        calculate_cidr,
+        get_aws_caller_identity,
+        get_docker_containers,
+        get_kube_contexts,
+        http_timing_probe,
+        inspect_ssl_cert,
+        query_dns,
+        stop_docker_container,
+        switch_kube_context,
+        tcp_ping,
+    )
+
+    ident_row = Adw.ActionRow(
+        use_markup=False,
+        title="AWS Caller Identity",
+        subtitle="Click Verify to inspect active Account ID and User/Role ARN",
+    )
+    verify_aws_btn = Gtk.Button(
+        icon_name="security-high-symbolic",
+        tooltip_text="Verify active AWS identity (STS)",
+        valign=Gtk.Align.CENTER,
+        css_classes=["flat"],
+    )
+    def on_verify_aws(_b):
+        ident_row.set_subtitle("Checking AWS STS...")
+        def worker():
+            ident = get_aws_caller_identity()
+            if "error" in ident:
+                msg = f"Error: {ident['error']}"
+            else:
+                msg = f"Account {ident.get('Account')} · {ident.get('Arn')}"
+            GLib.idle_add(lambda: (ident_row.set_subtitle(msg), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+
+    verify_aws_btn.connect("clicked", on_verify_aws)
+    ident_row.add_suffix(verify_aws_btn)
+    net_group.add(ident_row)
+
+    # Containers & Kubernetes Context
+    cur_kube, all_kubes = get_kube_contexts()
+    if all_kubes:
+        kube_row = Adw.ComboRow(
+            use_markup=False,
+            title="Active Kubernetes Context",
+            model=Gtk.StringList.new(all_kubes),
+        )
+        if cur_kube in all_kubes:
+            kube_row.set_selected(all_kubes.index(cur_kube))
+        def on_kube_switch(r, _p):
+            chosen = all_kubes[r.get_selected()]
+            switch_kube_context(chosen)
+        kube_row.connect("notify::selected", on_kube_switch)
+        net_group.add(kube_row)
+    else:
+        net_group.add(Adw.ActionRow(use_markup=False, title="Kubernetes Context", subtitle="No active kubectl contexts configured"))
+
+    conts = get_docker_containers()
+    if conts:
+        docker_sub = f"{len(conts)} container(s) running"
+    else:
+        docker_sub = "Docker daemon idle or no containers active"
+    net_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle=docker_sub))
+
     page.add(net_group)
+
+    # Diagnostics Group (DNS, SSL, Port Ping, CIDR)
+    diag_group = Adw.PreferencesGroup(
+        title="Network and DevOps Diagnostics",
+        description="Live DNS query, SSL certificate inspection, TCP ping, and CIDR subnet calculation.",
+    )
+
+    # DNS Lookup Row
+    dns_row = Adw.ActionRow(use_markup=False, title="DNS Lookup", subtitle="Query A, AAAA, CNAME, MX records")
+    dns_entry = Gtk.Entry(placeholder_text="domain (e.g. google.com)", valign=Gtk.Align.CENTER, width_request=220)
+    dns_btn = Gtk.Button(icon_name="system-search-symbolic", tooltip_text="Query DNS", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_dns(_b):
+        dom = dns_entry.get_text().strip()
+        if not dom:
+            return
+        dns_row.set_subtitle("Querying...")
+        def worker():
+            ok, recs, msg = query_dns(dom, "A")
+            if ok and recs:
+                ans = ", ".join(r.value for r in recs[:3])
+                sub = f"{dom} -> {ans}"
+            else:
+                sub = f"{dom}: {msg}"
+            GLib.idle_add(lambda: (dns_row.set_subtitle(sub), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+    dns_btn.connect("clicked", on_dns)
+    dns_row.add_suffix(dns_entry)
+    dns_row.add_suffix(dns_btn)
+    diag_group.add(dns_row)
+
+    # SSL Inspection Row
+    ssl_row = Adw.ActionRow(use_markup=False, title="SSL/TLS Certificate", subtitle="Check certificate expiration and issuer")
+    ssl_entry = Gtk.Entry(placeholder_text="host (e.g. github.com)", valign=Gtk.Align.CENTER, width_request=220)
+    ssl_btn = Gtk.Button(icon_name="channel-secure-symbolic", tooltip_text="Inspect SSL", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_ssl(_b):
+        host = ssl_entry.get_text().strip()
+        if not host:
+            return
+        ssl_row.set_subtitle("Connecting...")
+        def worker():
+            res = inspect_ssl_cert(host)
+            if res.is_valid:
+                sub = f"{res.issuer} · {res.days_left} day(s) left (Expires: {res.expiry_date})"
+            else:
+                sub = f"Invalid/Error: {res.error or 'Expired'}"
+            GLib.idle_add(lambda: (ssl_row.set_subtitle(sub), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+    ssl_btn.connect("clicked", on_ssl)
+    ssl_row.add_suffix(ssl_entry)
+    ssl_row.add_suffix(ssl_btn)
+    diag_group.add(ssl_row)
+
+    # CIDR Subnet Calculator Row
+    cidr_row = Adw.ActionRow(use_markup=False, title="CIDR Subnet Calculator", subtitle="Calculate network mask, broadcast, and usable host capacity")
+    cidr_entry = Gtk.Entry(placeholder_text="CIDR (e.g. 10.0.0.0/16)", valign=Gtk.Align.CENTER, width_request=220)
+    cidr_btn = Gtk.Button(icon_name="accessories-calculator-symbolic", tooltip_text="Calculate", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_cidr(_b):
+        c_str = cidr_entry.get_text().strip()
+        if not c_str:
+            return
+        ok, res, msg = calculate_cidr(c_str)
+        if ok and res:
+            sub = f"{res.cidr}: {res.usable_hosts:,} usable hosts ({res.first_host} - {res.last_host}) · Netmask {res.netmask}"
+        else:
+            sub = f"Error: {msg}"
+        cidr_row.set_subtitle(sub)
+    cidr_btn.connect("clicked", on_cidr)
+    cidr_row.add_suffix(cidr_entry)
+    cidr_row.add_suffix(cidr_btn)
+    diag_group.add(cidr_row)
+
+    page.add(diag_group)
 
     hist = NotificationHistory()
     hist_group = Adw.PreferencesGroup(title="Notification Center")

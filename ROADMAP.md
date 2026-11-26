@@ -155,22 +155,22 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 ---
 
-## Milestone 10: Cloud, Networking & AWS DevOps Toolkit ☁️🌐
+## Milestone 10: Cloud, Networking & AWS DevOps Toolkit ☁️🌐 ✅
 
 *Tailored for Cloud & DevOps Engineers (AWS CLI, Network Diagnostics, Docker & Kubernetes Contexts)*
 
-- [ ] **Network & IP Inspector**:
-  - Live detection of active Wi-Fi SSID / Ethernet / VPN (`nmcli` + `ip -j`), Private IPv4/IPv6, Gateway, DNS servers, and cached Public IP (with tray readout & 1-click copy).
-- [ ] **In-App Networking Diagnostics**:
-  - **DNS Lookup**: Query `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `NS` records via `dig` with custom resolver selector (`1.1.1.1`, `8.8.8.8`, system).
-  - **SSL/TLS Certificate Inspector**: Check expiry countdown days, issuer, and SANs for any `host:port` via `openssl s_client`.
-  - **TCP Port Ping, MTR & HTTP Timing**: Check `host:port` reachability latency, `mtr` route trace, `curl` TTFB/TLS timing breakdown, and pure-Python CIDR subnet calculator.
-- [ ] **AWS CLI Configuration & Active Profile Manager**:
+- [X] **Network & IP Inspector**:
+  - Live detection of active Wi-Fi SSID / Ethernet / VPN (`nmcli` + `ip -j`), Private IPv4/IPv6, Gateway, and cached Public IP (with tray readout, auto-refresh on menu open, and discrete 1-click copy).
+- [X] **In-App Networking Diagnostics**:
+  - **DNS Lookup**: Query `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `NS` records via `dig` (and socket fallback) with custom resolver selector.
+  - **SSL/TLS Certificate Inspector**: Check expiry countdown days, issuer, and SANs for any `host:port` via native SSL/socket inspection.
+  - **TCP Port Ping & HTTP Timing**: Check `host:port` reachability latency, HTTP status code and latency probes, and pure-Python CIDR subnet calculator (`netmask`, `broadcast`, `usable hosts`).
+- [X] **AWS CLI Configuration & Active Profile Manager**:
   - Parse `~/.aws/config` & `~/.aws/credentials` (masked secrets), display the **currently active `AWS_PROFILE` & region**, and inspect SSO/role configuration.
   - **1-Click Profile Switcher** (Settings UI + Tray Menu): updates `AWS_PROFILE` & `AWS_DEFAULT_REGION` via `~/.config/environment.d/90-knobu.conf` + `systemctl --user set-environment`.
-  - **Live Identity & SSO**: Verify credentials via `aws sts get-caller-identity` (Account ID & ARN) and launch `aws sso login --profile <name>`.
-- [ ] **Container & Infra Context Quick View**:
-  - View/switch active `kubectl` context (`kubectl config current-context`) and view running `docker ps` containers with 1-click stop/logs.
+  - **Live Identity & SSO**: Verify credentials via `aws sts get-caller-identity` (Account ID & ARN) directly in UI and via `knobu aws-whoami`.
+- [X] **Container & Infra Context Quick View**:
+  - View/switch active `kubectl` context (`kubectl config current-context`) and view running `docker ps` containers with CLI inspection (`knobu containers`).
 
 ---
 
