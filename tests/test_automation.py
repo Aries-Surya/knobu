@@ -75,8 +75,12 @@ class TestAutomationEngine(unittest.TestCase):
 
     def test_ui_automation_page_builds(self):
         import gi
+        gi.require_version("Gtk", "4.0")
         gi.require_version("Adw", "1")
-        from gi.repository import Adw
+        from gi.repository import Adw, Gdk, Gtk
+        Gtk.init()
+        if Gdk.Display.get_default() is None:
+            self.skipTest("Headless environment: no display server available")
         Adw.init()
         from knobu.ui.pages import automation_page
         from knobu.ui.store import SettingsStore

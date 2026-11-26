@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from knobu import config
 
@@ -34,7 +35,7 @@ class ConfigTests(unittest.TestCase):
             config.save(sample, cfg_path)
 
             # Test backup export
-            with unittest.mock.patch("knobu.config.config_path", return_value=cfg_path):
+            with patch("knobu.config.config_path", return_value=cfg_path):
                 out = config.export_json(backup_path)
                 self.assertEqual(out, backup_path)
                 self.assertTrue(backup_path.exists())
