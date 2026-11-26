@@ -1286,15 +1286,31 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     )
     net_group.add(Adw.ActionRow(use_markup=False, title=f"Connection ({net.connection_type or 'network'})",
                                 subtitle=f"{net.connection_name}" + (f" · VPN {net.vpn_ip}" if net.vpn_ip else "")))
-    net_group.add(Adw.ActionRow(use_markup=False, title="Private IP", subtitle=net.private_ip))
-    pub_row = Adw.ActionRow(use_markup=False, title="Public IP", subtitle="Click Fetch to query")
-    pub_btn = Gtk.Button(label="Fetch", valign=Gtk.Align.CENTER, css_classes=["pill"])
+
+    from knobu.system.clipboard import set_clipboard
+    priv_row = Adw.ActionRow(use_markup=False, title="Private IP", subtitle=net.private_ip)
+    priv_btn = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER,
+                          css_classes=["flat", "circular"], tooltip_text="Refresh & Copy Private IP")
+    def on_priv_refresh(_b):
+        fresh = get_network_status().private_ip
+        priv_row.set_subtitle(fresh)
+        if fresh and fresh != "Unavailable":
+            set_clipboard(fresh)
+    priv_btn.connect("clicked", on_priv_refresh)
+    priv_row.add_suffix(priv_btn)
+    net_group.add(priv_row)
+
+    pub_row = Adw.ActionRow(use_markup=False, title="Public IP", subtitle="Click refresh to fetch & copy")
+    pub_btn = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER,
+                         css_classes=["flat", "circular"], tooltip_text="Refresh & Copy Public IP")
     def on_pub(_b):
         _b.set_sensitive(False)
-        pub_row.set_subtitle("Fetching...")
+        pub_row.set_subtitle("Refreshing...")
         def w():
             ip = fetch_public_ip() or "Offline"
-            GLib.idle_add(lambda: (pub_row.set_subtitle(ip), _b.set_sensitive(True), False)[2])
+            if ip not in ("Offline", ""):
+                set_clipboard(ip)
+            GLib.idle_add(lambda: (pub_row.set_subtitle(f"{ip} (copied)" if ip != "Offline" else ip), _b.set_sensitive(True), False)[2])
         threading.Thread(target=w, daemon=True).start()
     pub_btn.connect("clicked", on_pub)
     pub_row.add_suffix(pub_btn)

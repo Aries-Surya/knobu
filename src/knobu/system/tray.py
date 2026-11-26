@@ -255,6 +255,23 @@ class StatusTray:
                 pass
         return GLib.SOURCE_REMOVE
 
+    def _refresh_and_copy_private_ip(self) -> None:
+        net = get_network_status()
+        with self._lock:
+            self._net = net
+        GLib.idle_add(self._emit_layout_if_changed)
+        self._copy_with_toast("Private IP", net.private_ip)
+
+    def _refresh_and_copy_public_ip(self) -> None:
+        if not self.show_public_ip:
+            return
+        ip = fetch_public_ip() or "Offline"
+        with self._lock:
+            self._public_ip = ip
+            self._last_ip_fetch = time.monotonic()
+        GLib.idle_add(self._emit_layout_if_changed)
+        self._copy_with_toast("Public IP", ip)
+
     def _copy_with_toast(self, label: str, value: str) -> None:
         if not value or value in ("...", "Unavailable", "Offline", "Disabled"):
             return
@@ -369,11 +386,10 @@ class StatusTray:
             item(1, status_lbl, enabled=False),
             item(2, item_type="separator"),
             item(3, net_label, enabled=False),
-            item(4, f"Private IP: {net.private_ip}  (Click to copy)",
-                 action=lambda ip=net.private_ip: self._copy_with_toast("Private IP", ip)),
-            item(5, f"Public IP: {pub}  (Click to copy)",
-                 action=lambda ip=pub: self._copy_with_toast("Public IP", ip)),
-            item(6, "Refresh Network and Public IP", action=lambda: self.refresh_network_async(force_public=True)),
+            item(4, f"Private IP: {net.private_ip}  ⟳ Copy",
+                 action=self._refresh_and_copy_private_ip),
+            item(5, f"Public IP: {pub}  ⟳ Copy",
+                 action=self._refresh_and_copy_public_ip),
             item(7, item_type="separator"),
             item(10, f"AWS Profile: {aws_active}", children=aws_children),
             item(11, item_type="separator"),
