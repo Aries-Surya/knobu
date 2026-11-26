@@ -12,7 +12,7 @@ Touchpad volume gestures, key remapping, a colour picker, on-screen text copying
 [![Kubuntu: supported](https://img.shields.io/badge/Kubuntu-supported-1d99f3)](#supported-desktops)
 [![Ubuntu: beta](https://img.shields.io/badge/Ubuntu-beta-E95420)](#supported-desktops)
 
-[Download](https://github.com/Aries-Surya/knobu/releases/latest) · [Report a bug](https://github.com/Aries-Surya/knobu/issues)
+[Download](https://github.com/Aries-Surya/knobu/releases/latest) · [User Manual](docs/USER_MANUAL.md) · [Report a bug](https://github.com/Aries-Surya/knobu/issues)
 
 <img src="docs/demo.gif" alt="Knobu demo: three-finger volume slide, CapsLock to Ctrl remap, colour picker, text extractor and Awake" width="800">
 
