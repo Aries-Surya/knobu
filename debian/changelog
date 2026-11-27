@@ -1,3 +1,15 @@
+knobu (0.5.1) noble; urgency=medium
+
+  * Release 0.5.1:
+    - Fix clipboard paste behavior on Wayland GNOME.
+    - Fix Find My Mouse spotlight positioning using live dynamic coordinates.
+    - Add native GNOME Shell Window Bridge extension for Wayland Always-on-Top.
+    - DevOps on Cloud: AWS Profile Switcher, K8s Context Switcher, Port Manager, Hosts Editor.
+    - Dedicated System Tools suite.
+    - Universal feature bypass mode.
+
+ -- Surya Prakash <suryaprakash.g.official@gmail.com>  Fri, 27 Nov 2026 12:05:00 +0530
+
 knobu (0.1.0) questing; urgency=medium
 
   * Initial release.
