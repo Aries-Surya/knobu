@@ -199,3 +199,29 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
   - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click (`knobu workspace`).
 - [X] **ZoomIt & Quick Accent**:
   - Screen freeze-zoom & pen/arrow/box annotation overlay (`knobu zoomit`), plus Quick Accent character picker (`knobu quick-accent`).
+
+---
+
+## Milestone 13: Cloud Sync, System Tools & Wayland Window Bridge 🚀 (In Progress)
+
+*Architecture restructuring, enterprise cloud backup, native Wayland window controls, and static docs portal*
+
+- [ ] **Architecture Reorganization**:
+  - **DevOps on Cloud**: Relocate Port Manager (`knobu ports`) and Hosts File Editor (`/etc/hosts`) into DevOps on Cloud.
+  - **Cloud Integrations**: Add active AWS CLI profile switcher and Kubernetes context switcher (`kubectl config use-context`) directly in UI and CLI.
+  - **System Tools (New Category)**: Separate System Tools from Power Tools, housing System Cleaner (`~/.cache`, crash dumps, apt), Package Uninstaller, Environment Variables Manager, and File Locksmith.
+  - **Universal Bypass Mode**: Add per-feature bypass switches across every module in UI and config for seamless OS troubleshooting.
+- [ ] **Native Wayland Window Management & Pointer Fixes**:
+  - **Wayland Window Bridge**: Bundle native GNOME Shell Extension (`knobu-window-bridge@knobu.org`) providing D-Bus controls for Always on Top (`Super+Ctrl+T`), FancyZones window snapping, and clean window maximizing under native Wayland.
+  - **Find My Mouse Spotlight Fix**: Replace static screenshot center circles with live dynamic cursor coordinates and native GNOME `locate-pointer` ripple rings.
+- [ ] **Automation Engine Expansion & Recommendations**:
+  - Expand triggers (Wi-Fi connect/disconnect, VPN, battery thresholds, process launch/exit, screen locks, schedules).
+  - Expand conditions (Wi-Fi SSID lists, battery ranges, power sources, running processes, time windows).
+  - Predefined Recommendation Templates (DevOps Workday, Gaming Passthrough, Low Battery Saver, Secure Screen Lock).
+- [ ] **GitHub Gist Cloud Backup & Synchronization**:
+  - Authenticated GitHub Gist cloud backup supporting personal access tokens (PAT).
+  - Automated background sync on configuration changes or periodic schedules, plus manual 1-click push/pull sync.
+- [ ] **Static Documentation Website (GitHub Pages)**:
+  - Complete, self-contained, responsive static documentation site in `docs-site/` ready for self-hosted GitHub Pages deployment.
+- [ ] **Comprehensive Issue & Bug Tracking**:
+  - Maintain centralized bug tracking in `BUGS.md` with root causes, affected environments, and verification criteria.
