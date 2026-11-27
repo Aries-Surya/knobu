@@ -101,6 +101,12 @@ def main() -> None:
     p_cidr = sub.add_parser("cidr", help="calculate IPv4/IPv6 CIDR network range and usable hosts")
     p_cidr.add_argument("prefix", help="CIDR prefix (e.g. 192.168.1.0/24 or 10.0.0.0/16)")
     sub.add_parser("aws-whoami", help="display active AWS caller identity (Account ID, ARN, UserId)")
+    p_aws = sub.add_parser("aws-profile", help="list or switch the active AWS CLI profile")
+    p_aws.add_argument("name", nargs="?", default=None, help="AWS profile name to activate")
+    p_kube = sub.add_parser("kube-context", help="list or switch the active Kubernetes context")
+    p_kube.add_argument("name", nargs="?", default=None, help="kubectl context name to activate")
+    p_gist = sub.add_parser("gist-sync", help="push or pull Knobu config backup to/from GitHub Gist")
+    p_gist.add_argument("action", nargs="?", default="status", choices=["status", "push", "pull"])
     sub.add_parser("containers", help="list Docker containers status and ports")
     sub.add_parser("shortcut-guide", help="open the interactive Shortcut Guide overlay")
     sub.add_parser("zoomit", help="freeze screen for zoom & pen/arrow/box annotation")
@@ -255,6 +261,51 @@ def main() -> None:
         print(f"  Account ID: {ident.get('Account')}")
         print(f"  ARN:        {ident.get('Arn')}")
         print(f"  UserId:     {ident.get('UserId')}")
+    elif args.command == "aws-profile":
+        from knobu.modules.powertools.aws_cli import (
+            get_active_aws_profile,
+            load_aws_profiles,
+            set_active_aws_profile,
+        )
+        if not args.name:
+            active = get_active_aws_profile()
+            for prof in load_aws_profiles():
+                mark = "*" if prof.name == active else " "
+                reg = f" ({prof.region})" if prof.region else ""
+                print(f"{mark} {prof.name}{reg}")
+        else:
+            profiles = {p.name: p for p in load_aws_profiles()}
+            reg = profiles[args.name].region if args.name in profiles else ""
+            ok, msg = set_active_aws_profile(args.name, reg)
+            print(msg)
+            sys.exit(0 if ok else 1)
+    elif args.command == "kube-context":
+        from knobu.modules.powertools.devops import get_kube_contexts, switch_kube_context
+        if not args.name:
+            cur, all_ctx = get_kube_contexts()
+            if not all_ctx:
+                print("No kubectl contexts configured.")
+            for ctx in all_ctx:
+                print(f"{'*' if ctx == cur else ' '} {ctx}")
+        else:
+            ok, msg = switch_kube_context(args.name)
+            print(msg)
+            sys.exit(0 if ok else 1)
+    elif args.command == "gist-sync":
+        from knobu.modules.cloud_backup import load_sync_config, pull_from_gist, push_to_gist
+        cfg = load_sync_config()
+        if args.action == "status":
+            print(f"GitHub User: {cfg.github_user or '(not verified)'}")
+            print(f"Gist ID:     {cfg.gist_id or '(not set)'}")
+            print(f"Auto-sync:   {'ON' if cfg.auto_sync_on_change else 'OFF'} (interval: {cfg.sync_interval_minutes}m)")
+        elif args.action == "push":
+            ok, _gid, msg = push_to_gist()
+            print(msg)
+            sys.exit(0 if ok else 1)
+        elif args.action == "pull":
+            ok, _data, msg = pull_from_gist()
+            print(msg)
+            sys.exit(0 if ok else 1)
     elif args.command == "containers":
         from knobu.modules.powertools.devops import get_docker_containers
         conts = get_docker_containers()

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Troubleshooting — Knobu Docs</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="nav">
+      <a class="brand" href="index.html"><span>Knobu</span> Docs</a>
+      <div class="nav-links">
+        <a href="index.html">Overview</a>
+        <a href="features.html">Features &amp; Shortcuts</a>
+        <a href="automations.html">Automations &amp; Cloud Sync</a>
+        <a class="active" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Troubleshooting &amp; Wayland Architecture</h1>
+
+    <div class="card" style="margin-bottom: 1.25rem;">
+      <h3>Always on Top &amp; FancyZones on Native GNOME Wayland</h3>
+      <p>Native Wayland apps do not expose EWMH X11 window IDs to <code>wmctrl</code>. Knobu bundles the native GNOME Shell extension <code>knobu-window-bridge@knobu.org</code> which exposes a session D-Bus bridge to Mutter (<code>make_above()</code>, <code>unmake_above()</code>, <code>move_resize_frame()</code>). If newly installed, log out and back into GNOME once so GNOME Shell loads the user extension.</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 1.25rem;">
+      <h3>How to Turn Off Always on Top</h3>
+      <p>Focus the pinned window and press <kbd>Super+Alt+T</kbd> again, click <strong>Always on Top</strong> in the Top Bar Tray -&gt; Quick Tools, run <code>knobu always-on-top</code>, or right-click the app's title bar and uncheck <em>Always on Top</em>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 1.25rem;">
+      <h3>Display Scaling &amp; Safe Revert</h3>
+      <p>When changing monitor resolution or scaling inside <strong>Appearance &amp; System -&gt; Display Resolution &amp; Scaling</strong>, Knobu automatically displays a 15-second confirmation prompt. If you do not confirm (for example, if a resolution renders blank), Knobu restores your previous working configuration automatically.</p>
+    </div>
+
+    <div class="card">
+      <h3>Quick Bypass &amp; Daemon Reload</h3>
+      <pre><code>knobu bypass on        # immediately pause all hardware grabs for OS troubleshooting
+knobu bypass off       # re-enable Knobu utilities
+systemctl --user reload knobu</code></pre>
+    </div>
+  </main>
+
+  <footer>Knobu — GPL-3.0 · Static documentation built for GitHub Pages</footer>
+</body>
+</html>

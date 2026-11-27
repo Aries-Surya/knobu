@@ -29,7 +29,7 @@ class ColorPickerModule(HotkeyToolModule):
     description = "Pick a colour from anywhere on screen and copy it."
     icon = "knobu-colorpicker-symbolic"
     command = "pick-color"
-    defaults = {"enabled": True, "hotkey": "super+shift+c", "format": "hex"}
+    defaults = {"enabled": True, "bypass": False, "hotkey": "super+shift+c", "format": "hex"}
 
 
 class TextExtractorModule(HotkeyToolModule):
@@ -38,4 +38,4 @@ class TextExtractorModule(HotkeyToolModule):
     description = "Select any area of the screen and copy the text in it."
     icon = "knobu-textextractor-symbolic"
     command = "extract-text"
-    defaults = {"enabled": True, "hotkey": "super+shift+t", "language": "eng"}
+    defaults = {"enabled": True, "bypass": False, "hotkey": "super+shift+t", "language": "eng"}

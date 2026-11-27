@@ -34,11 +34,15 @@ class MainWindow(Adw.ApplicationWindow):
     def _build_sidebar(self) -> Adw.NavigationPage:
         self.lists = []
         top = self._nav_list([p for p in PAGES if p[4] == "top"])
+        tools = self._nav_list([p for p in PAGES if p[4] == "tools"])
         mods = self._nav_list([p for p in PAGES if p[4] == "modules"], dots=True)
         bottom = self._nav_list([p for p in PAGES if p[4] == "bottom"])
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         body.append(top)
+        body.append(Gtk.Label(label="TOOLS &amp; PREFERENCES", use_markup=True, xalign=0,
+                              css_classes=["sidebar-heading", "dim-label"]))
+        body.append(tools)
         body.append(Gtk.Label(label="MODULES", xalign=0, css_classes=["sidebar-heading", "dim-label"]))
         body.append(mods)
 

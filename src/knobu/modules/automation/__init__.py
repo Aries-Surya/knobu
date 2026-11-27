@@ -6,6 +6,7 @@ import threading
 
 from knobu.modules.automation.engine import (
     ACTION_TYPES,
+    AUTOMATION_TEMPLATES,
     CONDITION_TYPES,
     TRIGGER_TYPES,
     AutomationAction,
@@ -13,6 +14,7 @@ from knobu.modules.automation.engine import (
     AutomationRule,
     capture_snapshot,
     check_condition,
+    create_rule_from_template,
     evaluate_rule_trigger,
     load_history,
     load_rules,
@@ -29,6 +31,8 @@ __all__ = [
     "TRIGGER_TYPES",
     "CONDITION_TYPES",
     "ACTION_TYPES",
+    "AUTOMATION_TEMPLATES",
+    "create_rule_from_template",
     "load_rules",
     "save_rules",
     "load_history",
@@ -43,6 +47,7 @@ class AutomationModule(Module):
     icon = "system-run-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "poll_seconds": 5,
     }
 
@@ -50,7 +55,8 @@ class AutomationModule(Module):
         poll = max(2, int(self.settings.get("poll_seconds", 5)))
         rules = load_rules()
         folders = [r.trigger_value for r in rules if r.enabled and r.trigger_type == "folder_new_file" and r.trigger_value]
-        prev = capture_snapshot(folders)
+        need_lock = any(r.enabled and r.trigger_type == "screen_lock" for r in rules)
+        prev = capture_snapshot(folders, check_lock=need_lock)
 
         while not stop.wait(poll):
             rules = load_rules()
@@ -58,7 +64,8 @@ class AutomationModule(Module):
             if not enabled_rules:
                 continue
             folders = [r.trigger_value for r in enabled_rules if r.trigger_type == "folder_new_file" and r.trigger_value]
-            cur = capture_snapshot(folders)
+            need_lock = any(r.trigger_type == "screen_lock" for r in enabled_rules)
+            cur = capture_snapshot(folders, check_lock=need_lock)
             for rule in enabled_rules:
                 try:
                     if evaluate_rule_trigger(rule, prev, cur) and check_condition(rule, cur):

@@ -51,6 +51,7 @@ class ClipboardModule(Module):
     icon = "edit-paste-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "hotkey": "super+v",
         "plain_hotkey": "",
         "clean_urls": True,

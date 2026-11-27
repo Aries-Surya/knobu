@@ -34,7 +34,7 @@ class Daemon:
             if bypass_all and cls.id != "notifications":
                 continue
             settings = config.module_settings(data, cls.id, cls.defaults)
-            if settings["enabled"]:
+            if settings["enabled"] and not settings.get("bypass", False):
                 if cls.id in existing:
                     existing[cls.id].update_settings(settings)
                     continue
@@ -49,7 +49,7 @@ class Daemon:
         for module in self.running:
             if reloading and module.id == "notifications":
                 s = config.module_settings(data, module.id, module.defaults)
-                if s["enabled"]:
+                if s["enabled"] and not s.get("bypass", False):
                     kept.append(module)
                     continue
             module.stop()
@@ -62,8 +62,10 @@ class Daemon:
         signal.signal(signal.SIGTERM, self._on_signal)
         signal.signal(signal.SIGINT, self._on_signal)
         self.start_modules()
+        from knobu.modules import cloud_backup
         while not self._quit:
             if not self._wake.wait(1):  # timeout keeps signal handling responsive
+                cloud_backup.maybe_periodic_sync()
                 continue
             self._wake.clear()
             if self._reload and not self._quit:

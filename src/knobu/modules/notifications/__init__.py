@@ -22,10 +22,12 @@ class NotificationsModule(Module):
     icon = "preferences-system-notifications-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "show_tray": True,
         "show_hud": False,
         "dnd": False,
         "show_public_ip": True,
+        "custom_ringtone": "",
     }
 
     def __init__(self, settings: dict):
@@ -47,8 +49,13 @@ class NotificationsModule(Module):
         def on_notify(app_name: str, summary: str, body: str, icon: str) -> None:
             rec = history.add(app_name, summary, body, icon)
             GLib.idle_add(tray._emit_layout_if_changed)
-            if bool(self.settings.get("show_hud", False)) and not bool(self.settings.get("dnd", False)):
-                launch.knobu("notifications", "--toast", str(rec.id))
+            if not bool(self.settings.get("dnd", False)):
+                ringtone = str(self.settings.get("custom_ringtone", "")).strip()
+                if ringtone:
+                    from knobu.modules.system_prefs import preview_sound
+                    preview_sound(ringtone)
+                if bool(self.settings.get("show_hud", False)):
+                    launch.knobu("notifications", "--toast", str(rec.id))
 
         monitor = NotificationMonitor(on_notify)
         if bool(self.settings.get("show_tray", True)):

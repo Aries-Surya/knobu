@@ -152,6 +152,7 @@ class SoundSuiteModule(Module):
     icon = "audio-speakers-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "mic_mute_hotkey": "super+shift+a",
         "switch_output_hotkey": "super+shift+o",
         "auto_lower_on_disconnect": True,

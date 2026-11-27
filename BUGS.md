@@ -10,7 +10,7 @@ This document tracks identified bugs, root causes, system environments affected,
 - **Severity**: High
 - **Category**: Window Manager / Wayland
 - **Symptoms**:
-  - When triggering **Always on Top** (`Super+Ctrl+T`), **FancyZones Snapping** (`knobu snap`), or **Window Maximize** (`Super+Ctrl+Up`), user receives:
+  - When triggering **Always on Top** (`Super+Alt+T`), **FancyZones Snapping** (`knobu snap`), or **Window Maximize** (`Super+Alt+Up`), user receives:
     `Active window does not expose EWMH handle (native Wayland app)`.
 - **Root Cause**:
   - `wmctrl` and `xdotool` rely on X11 / XWayland root window properties (`_NET_WM_STATE_ABOVE`, `_NET_ACTIVE_WINDOW`). Native Wayland applications (Firefox Wayland, Alacritty, GNOME apps) do not expose X11 window IDs or EWMH handles to client applications for security reasons.

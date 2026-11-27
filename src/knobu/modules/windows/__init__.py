@@ -33,11 +33,12 @@ class WindowModule(Module):
     icon = "focus-windows-symbolic"
     defaults = {
         "enabled": True,
-        "always_on_top_hotkey": "super+ctrl+t",
+        "bypass": False,
+        "always_on_top_hotkey": "super+alt+t",
         "fancyzones_hotkey": "super+shift+grave",
-        "snap_left_hotkey": "super+ctrl+left",
-        "snap_right_hotkey": "super+ctrl+right",
-        "maximize_hotkey": "super+ctrl+up",
+        "snap_left_hotkey": "super+alt+left",
+        "snap_right_hotkey": "super+alt+right",
+        "maximize_hotkey": "super+alt+up",
         "zone_preset": "2col",
         "zone_gap": 8,
         "excluded_apps": [],

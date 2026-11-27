@@ -34,4 +34,6 @@ class SettingsStore:
     def _reload(self) -> bool:
         self._reload_source = 0
         service.reload()
+        from knobu.modules import cloud_backup
+        cloud_backup.trigger_auto_sync()
         return GLib.SOURCE_REMOVE

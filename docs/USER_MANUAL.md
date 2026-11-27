@@ -102,8 +102,8 @@ Summon the clipboard palette with **`Super+V`**.
 
 ## 4. Window Manager (FancyZones & Always on Top)
 
-### Always on Top (`Super+Ctrl+T`)
-- Press **`Super+Ctrl+T`** or run `knobu always-on-top`.
+### Always on Top (`Super+Alt+T`)
+- Press **`Super+Alt+T`** or run `knobu always-on-top`.
 - Pins the current focused window on top of all other windows.
 - Press again to unpin. Configurable excluded applications prevent full-screen games or video players from pinning unintentionally.
 
@@ -116,8 +116,8 @@ Summon the clipboard palette with **`Super+V`**.
   - `priority`: Wide center work area with narrow flanking toolbars.
   - `left_main`: Large left primary workspace with two stacked right panes.
 - **Keyboard Snapping**:
-  - Press **`Super+Ctrl+Left`** / **`Super+Ctrl+Right`** or run `knobu snap <zone-index>` to snap the active window into the target zone.
-  - Press **`Super+Ctrl+Up`** to maximize the window to active screen boundaries without full-screen desktop displacement.
+  - Press **`Super+Alt+Left`** / **`Super+Alt+Right`** or run `knobu snap <zone-index>` to snap the active window into the target zone.
+  - Press **`Super+Alt+Up`** to maximize the window to active screen boundaries without full-screen desktop displacement.
 
 ---
 

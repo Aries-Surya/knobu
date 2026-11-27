@@ -41,16 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * add comprehensive end-to-end user manual ([7a25f90](https://github.com/Aries-Surya/knobu/commit/7a25f90a67c155a71b227c565ac07328bdd75881))
 * sync ROADMAP, README, CHANGELOG, and man pages with all completed milestones ([aeba61f](https://github.com/Aries-Surya/knobu/commit/aeba61f6e73a9efbdf95397667f468f159a5de23))
 
-## [Unreleased]
+## [0.5.1] (2026-11-27)
 
-### Planned & In-Progress (Milestone 13)
-* **devops:** integrate Port Manager and Hosts File Editor into DevOps on Cloud; add active AWS profile switcher and Kubernetes context switcher
-* **system-tools:** create dedicated System Tools category housing System Cleaner, Package Uninstaller, Environment Variables, and File Locksmith
-* **windows:** bundle native GNOME Shell Extension bridge (`knobu-window-bridge@knobu.org`) to resolve Wayland native window control (`toggle_always_on_top`, FancyZones snapping)
-* **mouse:** fix Find My Mouse spotlight to track real cursor location dynamically and trigger GNOME `locate-pointer`
-* **automation:** add expanded triggers, conditions, actions, and 1-click DevOps recommendation templates
-* **cloud-backup:** add authenticated GitHub Gist cloud backup with auto-sync and manual push/pull
-* **docs:** create self-hosted static documentation portal in `docs-site/` for GitHub Pages; establish centralized bug tracking in `BUGS.md`
+### Features
+* **devops:** move Port Manager and Hosts File Editor into DevOps on Cloud; add TCP Port Ping, AWS CLI profile switcher/CLI (`knobu aws-profile`), and Kubernetes context switcher/CLI (`knobu kube-context`)
+* **system-tools:** create dedicated System Tools sidebar category housing System Cleaner, Package Uninstaller, Environment Variables Manager, and File Locksmith
+* **preferences:** implement Desktop Customization & System Preferences Suite (Startup Apps, Typography & Fonts, Appearance with Cursor/Icon/GTK themes & Light/Dark Wallpapers, Mutter Display Resolution & Zoom Scaling with 15s safe revert, Sound Profiles & Custom Notification Ringtones, and Per-App Notifications)
+* **automation:** expand triggers, conditions, and actions (`switch_kube`, `set_dnd`, `mute_mic`) plus 1-click DevOps & productivity recommendation templates
+* **cloud-backup:** add authenticated GitHub Gist cloud backup (`knobu gist-sync`) with `0600` isolated PAT config, auto-sync on changes, and periodic background sync
+* **bypass:** add universal per-feature bypass mode across all 14 modules and DevOps / System Tools
+* **docs:** add responsive self-hosted static documentation site in `docs-site/` for GitHub Pages
+
+### Changes & Fixes
+* **shortcuts:** replace `Super+Ctrl+*` window hotkeys with `Super+Alt+T`, `Super+Alt+Left/Right`, and `Super+Alt+Up` to prevent OS Control+Super conflicts
+* **clipboard & wayland:** fix Wayland copy-paste window spawning, dynamic Find My Mouse cursor tracking, and GNOME Shell window bridge extension
 
 ## [0.5.0] (2026-11-26)
 

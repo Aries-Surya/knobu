@@ -86,6 +86,23 @@ class TestWindowManagement(unittest.TestCase):
             self.assertTrue(ok3)
             self.assertEqual(get_cursor_position(), (640, 480))
 
+    def test_no_ctrl_super_combos_and_universal_bypass(self):
+        from knobu.modules import MODULES
+        from knobu.modules.windows import WindowModule
+        from knobu.system import keys
+
+        for k, v in WindowModule.defaults.items():
+            if k.endswith("_hotkey") and v:
+                chord = keys.parse(v)
+                self.assertFalse("ctrl" in chord.mods and "super" in chord.mods, f"{k} uses forbidden ctrl+super: {v}")
+        self.assertEqual(WindowModule.defaults["always_on_top_hotkey"], "super+alt+t")
+        for cls in MODULES:
+            self.assertIn("bypass", cls.defaults, f"{cls.id} missing bypass default")
+            inst = cls({**cls.defaults, "bypass": True})
+            with patch.object(inst, "run") as mock_run:
+                inst._run_guarded()
+                mock_run.assert_not_called()
+
     def test_ui_windows_page_builds(self):
         import gi
         gi.require_version("Gtk", "4.0")
