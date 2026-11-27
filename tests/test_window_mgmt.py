@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from knobu.modules.windows.zones import (
     compute_zones,
+    get_cursor_position,
     maximize_active_window,
     snap_active_window,
     toggle_always_on_top,
@@ -41,7 +42,8 @@ class TestWindowManagement(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("excluded", msg.lower())
 
-        with patch("knobu.modules.windows.zones._active_wmctrl_title", return_value="Terminal"), \
+        with patch("knobu.modules.windows.zones._is_gnome_desktop", return_value=False), \
+             patch("knobu.modules.windows.zones._active_wmctrl_title", return_value="Terminal"), \
              patch("shutil.which", side_effect=lambda c: "/usr/bin/wmctrl" if c == "wmctrl" else None), \
              patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
             ok, msg = toggle_always_on_top()
@@ -52,7 +54,8 @@ class TestWindowManagement(unittest.TestCase):
             )
 
     def test_snap_and_maximize_wmctrl(self):
-        with patch("knobu.modules.windows.zones._primary_screen_size", return_value=(1920, 1080)), \
+        with patch("knobu.modules.windows.zones._is_gnome_desktop", return_value=False), \
+             patch("knobu.modules.windows.zones._primary_screen_size", return_value=(1920, 1080)), \
              patch("shutil.which", return_value="/usr/bin/wmctrl"), \
              patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
             ok, msg = snap_active_window(1, "2col", gap=8)
@@ -62,6 +65,26 @@ class TestWindowManagement(unittest.TestCase):
 
             ok2, _ = maximize_active_window()
             self.assertTrue(ok2)
+
+    def test_gnome_wayland_bridge_calls(self):
+        with patch("knobu.modules.windows.zones._is_gnome_desktop", return_value=True), \
+             patch("knobu.modules.windows.zones._gnome_bridge_call") as mock_call:
+            mock_call.side_effect = [
+                ("Firefox",),                  # GetFocusedTitle
+                (True, "Pinned Firefox"),      # ToggleAlwaysOnTop
+                (True, "Snapped Firefox"),     # SnapWindow
+                (True, "Maximized Firefox"),   # MaximizeWindow
+                (640, 480),                    # GetCursorPosition
+            ]
+            ok, msg = toggle_always_on_top()
+            self.assertTrue(ok)
+            self.assertIn("Pinned", msg)
+            ok2, msg2 = snap_active_window(0, "2col", gap=8)
+            self.assertTrue(ok2)
+            self.assertIn("Zone 1", msg2)
+            ok3, _ = maximize_active_window()
+            self.assertTrue(ok3)
+            self.assertEqual(get_cursor_position(), (640, 480))
 
     def test_ui_windows_page_builds(self):
         import gi

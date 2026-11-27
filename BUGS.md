@@ -19,7 +19,7 @@ This document tracks identified bugs, root causes, system environments affected,
 - **Fix / Remediation**:
   - Bundle `knobu-window-bridge@knobu.org` GNOME Shell extension providing privileged Mutter window manipulation over session D-Bus (`ToggleAlwaysOnTop`, `SnapWindow`, `MaximizeWindow`).
   - Fall back to KDE Plasma KWin D-Bus (`org.kde.KWin.toggleKeepAbove`) on KDE, and `wmctrl` on X11/XWayland.
-- **Status**: Scheduled in Current Sprint (Milestone 13).
+- **Status**: Resolved (Bundled `knobu-window-bridge@knobu.org` in `src/knobu/modules/windows/gnome_extension/`).
 
 ---
 
@@ -35,7 +35,7 @@ This document tracks identified bugs, root causes, system environments affected,
 - **Fix / Remediation**:
   - Trigger GNOME interface `locate-pointer` ripple rings via `uinput` virtual `KEY_LEFTCTRL` pulse.
   - Dynamically query Mutter pointer coordinates via D-Bus bridge and track real-time cursor motion on overlay activation.
-- **Status**: Scheduled in Current Sprint (Milestone 13).
+- **Status**: Resolved (Removed frozen screenshot center circle; `FindMyMouseOverlay` now uses transparent live overlay + `get_cursor_position()`).
 
 ---
 

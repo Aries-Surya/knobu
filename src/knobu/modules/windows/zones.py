@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 import shutil
 import subprocess
+
+GNOME_EXT_UUID = "knobu-window-bridge@knobu.org"
+GNOME_BUS_NAME = "org.knobu.WindowBridge"
+GNOME_OBJ_PATH = "/org/knobu/WindowBridge"
 
 
 @dataclass(frozen=True)
@@ -86,7 +91,79 @@ def compute_zones(
     ]
 
 
+def _is_gnome_desktop() -> bool:
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
+    return "GNOME" in desktop or "UBUNTU" in desktop
+
+
+def _gnome_bridge_call(method: str, params_variant=None):
+    """Call a method on org.knobu.WindowBridge over session D-Bus."""
+    try:
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        res = bus.call_sync(
+            GNOME_BUS_NAME,
+            GNOME_OBJ_PATH,
+            GNOME_BUS_NAME,
+            method,
+            params_variant,
+            None,
+            Gio.DBusCallFlags.NO_AUTO_START,
+            1000,
+            None,
+        )
+        return res.unpack()
+    except Exception:
+        return None
+
+
+def ensure_gnome_bridge_installed() -> tuple[bool, str]:
+    """Install and enable the bundled GNOME Shell Window Bridge extension."""
+    src_dir = Path(__file__).parent / "gnome_extension"
+    if not src_dir.is_dir():
+        return False, "Bundled GNOME extension files not found"
+    dest_dir = Path.home() / ".local" / "share" / "gnome-shell" / "extensions" / GNOME_EXT_UUID
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        for fname in ("metadata.json", "extension.js"):
+            src = src_dir / fname
+            dst = dest_dir / fname
+            if src.exists() and (not dst.exists() or src.read_bytes() != dst.read_bytes()):
+                shutil.copy2(src, dst)
+        if shutil.which("gnome-extensions"):
+            subprocess.run(["gnome-extensions", "enable", GNOME_EXT_UUID],
+                           capture_output=True, text=True, timeout=3, check=False)
+        return True, "Knobu GNOME Window Bridge enabled — log out and back in once to activate Wayland window controls"
+    except OSError as err:
+        return False, f"Failed to install GNOME bridge: {err}"
+
+
+def get_cursor_position() -> tuple[int, int] | None:
+    """Return global (x, y) cursor coordinates via GNOME bridge or xdotool."""
+    if _is_gnome_desktop():
+        res = _gnome_bridge_call("GetCursorPosition")
+        if res and len(res) == 2:
+            return int(res[0]), int(res[1])
+    if shutil.which("xdotool"):
+        r = subprocess.run(["xdotool", "getmouselocation", "--shell"],
+                           capture_output=True, text=True, timeout=1, check=False)
+        if r.returncode == 0:
+            coords: dict[str, int] = {}
+            for line in r.stdout.splitlines():
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    if k in ("X", "Y") and v.isdigit():
+                        coords[k] = int(v)
+            if "X" in coords and "Y" in coords:
+                return coords["X"], coords["Y"]
+    return None
+
+
 def _active_wmctrl_title() -> str:
+    if _is_gnome_desktop():
+        res = _gnome_bridge_call("GetFocusedTitle")
+        if res and res[0]:
+            return str(res[0])
     if not shutil.which("xdotool"):
         return ""
     r = subprocess.run(["xdotool", "getactivewindow", "getwindowname"],
@@ -118,6 +195,11 @@ def toggle_always_on_top(excluded_apps: list[str] | None = None) -> tuple[bool, 
         if ex.strip() and ex.strip().lower() in title.lower():
             return False, f"Skipped excluded app: {title}"
 
+    if _is_gnome_desktop():
+        res = _gnome_bridge_call("ToggleAlwaysOnTop")
+        if res and len(res) == 2:
+            return bool(res[0]), str(res[1])
+
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
     if "KDE" in desktop and shutil.which("qdbus"):
         r = subprocess.run(
@@ -135,6 +217,10 @@ def toggle_always_on_top(excluded_apps: list[str] | None = None) -> tuple[bool, 
         if r.returncode == 0:
             return True, f"Toggled Always on Top{f' ({title})' if title else ''}"
 
+    if _is_gnome_desktop():
+        _ok, msg = ensure_gnome_bridge_installed()
+        return False, msg
+
     return False, "Active window does not expose EWMH handle (native Wayland app)"
 
 
@@ -145,6 +231,12 @@ def snap_active_window(zone_index: int, preset: str = "2col", gap: int = 8) -> t
     if not zones:
         return False, "No zones in layout"
     z = zones[zone_index % len(zones)]
+
+    if _is_gnome_desktop():
+        from gi.repository import GLib
+        res = _gnome_bridge_call("SnapWindow", GLib.Variant("(iiii)", (z.x, z.y, z.width, z.height)))
+        if res and len(res) == 2:
+            return bool(res[0]), f"Snapped to Zone {z.index + 1} ({z.width}x{z.height})" if res[0] else str(res[1])
 
     if shutil.which("wmctrl"):
         # Unmaximize first so wmctrl -e resize/move takes effect cleanly
@@ -157,11 +249,20 @@ def snap_active_window(zone_index: int, preset: str = "2col", gap: int = 8) -> t
         if r.returncode == 0:
             return True, f"Snapped to Zone {z.index + 1} ({z.width}x{z.height})"
 
+    if _is_gnome_desktop():
+        _ok, msg = ensure_gnome_bridge_installed()
+        return False, msg
+
     return False, "Window snap requires X11/XWayland window handle or KWin"
 
 
 def maximize_active_window() -> tuple[bool, str]:
     """Maximize active window cleanly without fullscreen displacement."""
+    if _is_gnome_desktop():
+        res = _gnome_bridge_call("MaximizeWindow")
+        if res and len(res) == 2:
+            return bool(res[0]), str(res[1])
+
     if shutil.which("wmctrl"):
         r = subprocess.run(
             ["wmctrl", "-r", ":ACTIVE:", "-b", "add,maximized_vert,maximized_horz"],
@@ -169,4 +270,9 @@ def maximize_active_window() -> tuple[bool, str]:
         )
         if r.returncode == 0:
             return True, "Maximized active window"
+
+    if _is_gnome_desktop():
+        _ok, msg = ensure_gnome_bridge_installed()
+        return False, msg
+
     return False, "Maximize failed (no active EWMH window)"
