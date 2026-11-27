@@ -5,6 +5,14 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/Aries-Surya/knobu/compare/v0.5.0...v0.5.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **ci:** remove broken preinstalled microsoft apt sources before apt-get update ([fc33844](https://github.com/Aries-Surya/knobu/commit/fc338443342f6fc335b33f3c2027d653ea982a14))
+* **ci:** remove broken preinstalled microsoft apt sources before apt-get update ([8b9d3ee](https://github.com/Aries-Surya/knobu/commit/8b9d3ee4e67f67420125da84ac8f0b73ad32a35b))
+
 ## [0.5.0](https://github.com/Aries-Surya/knobu/compare/v0.4.0...v0.5.0) (2026-11-26)
 
 
