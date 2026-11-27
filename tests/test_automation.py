@@ -6,10 +6,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from knobu.modules.automation.engine import (
+    AUTOMATION_TEMPLATES,
     AutomationAction,
     AutomationRule,
     SystemSnapshot,
     check_condition,
+    create_rule_from_template,
     evaluate_rule_trigger,
     load_history,
     load_rules,
@@ -56,6 +58,50 @@ class TestAutomationEngine(unittest.TestCase):
         self.assertFalse(evaluate_rule_trigger(
             rule_bat, SystemSnapshot(battery_percent=18), SystemSnapshot(battery_percent=15)
         ))
+
+    def test_expanded_triggers_conditions_actions_and_templates(self):
+        # Expanded triggers
+        self.assertTrue(evaluate_rule_trigger(
+            AutomationRule(id="wd", name="WDisc", trigger_type="wifi_disconnect", trigger_value="Office"),
+            SystemSnapshot(wifi_ssid="Office"), SystemSnapshot(wifi_ssid=""),
+        ))
+        self.assertTrue(evaluate_rule_trigger(
+            AutomationRule(id="ba", name="Charged", trigger_type="battery_above", trigger_value="80"),
+            SystemSnapshot(battery_percent=79), SystemSnapshot(battery_percent=80),
+        ))
+        self.assertTrue(evaluate_rule_trigger(
+            AutomationRule(id="sl", name="Lock", trigger_type="screen_lock", trigger_value="locked"),
+            SystemSnapshot(locked=False), SystemSnapshot(locked=True),
+        ))
+        self.assertTrue(evaluate_rule_trigger(
+            AutomationRule(id="iv", name="Tick", trigger_type="interval", trigger_value="15"),
+            SystemSnapshot(tick_minute=29), SystemSnapshot(tick_minute=30),
+        ))
+
+        # Expanded conditions
+        self.assertTrue(check_condition(
+            AutomationRule(id="wi", name="WiIn", condition_type="wifi_in", condition_value="Home, Office"),
+            SystemSnapshot(wifi_ssid="office"),
+        ))
+        self.assertTrue(check_condition(
+            AutomationRule(id="br", name="BatRng", condition_type="battery_range", condition_value="20-80"),
+            SystemSnapshot(battery_percent=50),
+        ))
+        self.assertTrue(check_condition(
+            AutomationRule(id="tw", name="Win", condition_type="time_window", condition_value="09:00-18:00"),
+            SystemSnapshot(time_hm="12:30"),
+        ))
+        self.assertTrue(check_condition(
+            AutomationRule(id="ap", name="Proc", condition_type="app_is_running", condition_value="code"),
+            SystemSnapshot(running_procs={"python3", "code"}),
+        ))
+
+        # Templates
+        self.assertGreaterEqual(len(AUTOMATION_TEMPLATES), 4)
+        tpl_rule = create_rule_from_template("gaming_passthrough")
+        self.assertIsNotNone(tpl_rule)
+        self.assertEqual(tpl_rule.trigger_type, "app_running")
+        self.assertEqual(tpl_rule.actions[0].type, "set_bypass")
 
     def test_run_rule_now_logs_history(self):
         with tempfile.TemporaryDirectory() as d:

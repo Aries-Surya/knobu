@@ -12,14 +12,16 @@ import time
 
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from knobu import modules, service
+from knobu import config, modules, service
 from knobu.modules.automation import (
     ACTION_TYPES,
+    AUTOMATION_TEMPLATES,
     CONDITION_TYPES,
     TRIGGER_TYPES,
     AutomationAction,
     AutomationModule,
     AutomationRule,
+    create_rule_from_template,
     load_history,
     load_rules,
     run_rule_now,
@@ -241,11 +243,9 @@ def touchpad_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page = ModulePage(store, TouchpadModule, notices=input_notice())
 
     bp_group = Adw.PreferencesGroup(
-        title="Gaming and Passthrough",
-        description="Temporarily pass raw touchpad events directly without gesture interception.",
+        title="Touchpad Gesture Priority",
+        description="Prevent GNOME desktop gestures from firing simultaneously with Knobu swipes.",
     )
-    bp_group.add(switch_row(store, mid, "bypass", "Bypass Touchpad Gestures",
-                            "Allow standard touchpad gestures and pointer movement without Knobu actions"))
     bp_group.add(switch_row(store, mid, "grab_gestures", "Prevent OS Double-Trigger",
                             "Claim touchpad exclusively during 3 and 4-finger gestures so GNOME does not simultaneously trigger desktop gestures"))
     page.add(bp_group)
@@ -302,14 +302,6 @@ def keyboard_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             "Remapping needs permission to create a virtual keyboard. Run this in a terminal:",
             permissions.FIX_UINPUT))
     page = ModulePage(store, KeyboardModule, notices=notices)
-
-    bp_group = Adw.PreferencesGroup(
-        title="Gaming and Passthrough",
-        description="Temporarily disable keyboard remaps, snippets, and quit protection without stopping other tools.",
-    )
-    bp_group.add(switch_row(store, mid, "bypass", "Bypass Keyboard Customizations",
-                            "Allow raw physical keystrokes to pass directly to applications"))
-    page.add(bp_group)
 
     group = Adw.PreferencesGroup(
         title="Remaps",
@@ -462,14 +454,6 @@ def mouse_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             "Mouse utilities need permission to create a virtual pointing device. Run this in a terminal:",
             permissions.FIX_UINPUT))
     page = ModulePage(store, MouseModule, notices=notices)
-
-    bp_group = Adw.PreferencesGroup(
-        title="Gaming and Passthrough",
-        description="Temporarily pass raw mouse wheel and button events directly without modification.",
-    )
-    bp_group.add(switch_row(store, mid, "bypass", "Bypass Mouse Customizations",
-                            "Allow physical mouse input to pass directly to applications"))
-    page.add(bp_group)
 
     # 1. Smooth & Independent Scrolling
     scroll_group = Adw.PreferencesGroup(
@@ -670,12 +654,12 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page.add(bypass_group)
 
     backup_group = Adw.PreferencesGroup(
-        title="Configuration Backup & Restore",
+        title="Configuration Backup &amp; Restore",
         description="Export all module settings, shortcuts, and customizations to JSON or restore from a backup.",
     )
     backup_status = Adw.ActionRow(
         use_markup=False,
-        title="Backup & Restore",
+        title="Backup and Restore",
         subtitle="Saved to ~/.config/knobu/knobu-backup.json or custom file",
     )
 
@@ -727,6 +711,112 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     backup_status.add_suffix(restore_btn)
     backup_group.add(backup_status)
     page.add(backup_group)
+
+    # Cloud Backup (GitHub Gist)
+    from knobu.modules.cloud_backup import (
+        load_sync_config,
+        pull_from_gist,
+        push_to_gist,
+        save_sync_config,
+        verify_github_token,
+    )
+
+    sync_cfg = load_sync_config()
+    cloud_group = Adw.PreferencesGroup(
+        title="Cloud Backup (GitHub Gist)",
+        description="Sync Knobu configuration securely to a private GitHub Gist using a Personal Access Token (gist scope).",
+    )
+    pat_row = Adw.PasswordEntryRow(title="GitHub Personal Access Token (PAT)")
+    pat_row.set_text(sync_cfg.github_token)
+    auth_btn = Gtk.Button(label="Verify", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    pat_row.add_suffix(auth_btn)
+
+    gist_row = Adw.EntryRow(title="Gist ID (leave blank to create new secret Gist)")
+    gist_row.set_text(sync_cfg.gist_id)
+
+    cloud_status = Adw.ActionRow(
+        use_markup=False,
+        title="Cloud Sync Status",
+        subtitle=f"Account: @{sync_cfg.github_user}" if sync_cfg.github_user else "Not synchronized yet",
+    )
+
+    auto_sync_sw = Adw.SwitchRow(
+        use_markup=False,
+        title="Auto-Sync on Configuration Changes",
+        subtitle="Automatically push updated settings to your private Gist after edits",
+    )
+    auto_sync_sw.set_active(sync_cfg.auto_sync_on_change)
+
+    intervals = [(0, "Manual Only"), (15, "Every 15 Minutes"), (60, "Every Hour"), (1440, "Daily")]
+    int_vals = [v for v, _ in intervals]
+    interval_row = Adw.ComboRow(
+        use_markup=False,
+        title="Periodic Background Sync",
+        subtitle="Background daemon sync cadence while online",
+        model=Gtk.StringList.new([lbl for _, lbl in intervals]),
+    )
+    interval_row.set_selected(int_vals.index(sync_cfg.sync_interval_minutes) if sync_cfg.sync_interval_minutes in int_vals else 0)
+
+    def persist_sync_fields():
+        c = load_sync_config()
+        c.github_token = pat_row.get_text().strip()
+        c.gist_id = gist_row.get_text().strip()
+        c.auto_sync_on_change = auto_sync_sw.get_active()
+        c.sync_interval_minutes = int_vals[interval_row.get_selected()]
+        save_sync_config(c)
+        return c
+
+    auto_sync_sw.connect("notify::active", lambda *_a: persist_sync_fields())
+    interval_row.connect("notify::selected", lambda *_a: persist_sync_fields())
+
+    def on_verify_pat(_b):
+        c = persist_sync_fields()
+        cloud_status.set_subtitle("Verifying GitHub token...")
+        def worker():
+            ok, msg = verify_github_token(c.github_token)
+            if ok and "@" in msg:
+                c.github_user = msg.split("@", 1)[1].strip()
+                save_sync_config(c)
+            GLib.idle_add(lambda: (cloud_status.set_subtitle(msg), False)[1])
+        threading.Thread(target=worker, daemon=True).start()
+
+    push_btn = Gtk.Button(label="Push to Gist", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    pull_btn = Gtk.Button(label="Pull & Restore", valign=Gtk.Align.CENTER, css_classes=["pill"])
+
+    def on_push_gist(_b):
+        c = persist_sync_fields()
+        cloud_status.set_subtitle("Pushing configuration to GitHub Gist...")
+        def worker():
+            ok, gid, msg = push_to_gist(c.github_token, c.gist_id)
+            def apply_ui():
+                if ok and gid:
+                    gist_row.set_text(gid)
+                cloud_status.set_subtitle(msg)
+                return False
+            GLib.idle_add(apply_ui)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_pull_gist(_b):
+        c = persist_sync_fields()
+        cloud_status.set_subtitle("Pulling configuration from GitHub Gist...")
+        def worker():
+            ok, new_data, msg = pull_from_gist(c.github_token, c.gist_id)
+            def apply_ui():
+                if ok and new_data:
+                    store.data = new_data
+                cloud_status.set_subtitle(msg)
+                return False
+            GLib.idle_add(apply_ui)
+        threading.Thread(target=worker, daemon=True).start()
+
+    auth_btn.connect("clicked", on_verify_pat)
+    push_btn.connect("clicked", on_push_gist)
+    pull_btn.connect("clicked", on_pull_gist)
+    cloud_status.add_suffix(pull_btn)
+    cloud_status.add_suffix(push_btn)
+    for r in (pat_row, gist_row, auto_sync_sw, interval_row, cloud_status):
+        cloud_group.add(r)
+    page.add(cloud_group)
 
     about = Adw.PreferencesGroup(title="About")
     about.add(button_row("Knobu", "About", lambda: page.activate_action("app.about", None),
@@ -868,28 +958,10 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     from knobu.modules.powertools import (
         IMAGE_FORMATS,
         IMAGE_RESIZE_PRESETS,
-        EnvEntry,
-        HostEntry,
-        available_package_sources,
-        clean_target,
         compress_video,
         convert_images,
         ffmpeg_available,
-        find_file_locks,
-        format_bytes,
-        is_valid_key,
-        kill_process,
-        list_installed_packages,
-        list_listening_ports,
-        load_hosts,
-        load_profiles,
         resize_images,
-        save_hosts,
-        save_profiles,
-        scan_cleanup_targets,
-        system_env_snapshot,
-        uninstall_package,
-        validate_host_entry,
         video_to_gif,
     )
 
@@ -909,10 +981,10 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
             GLib.idle_add(lambda: on_done(res) and False)
         threading.Thread(target=worker, daemon=True).start()
 
-    # 1. Cleaning Mode
+    # 1. Cleaning Mode & Screen Ruler
     clean_mode = Adw.PreferencesGroup(
-        title="Cleaning Mode",
-        description="Fullscreen hardware lock overlay so you can wipe your keyboard, touchpad, and screen safely.",
+        title="Cleaning Mode and Screen Ruler",
+        description="Fullscreen hardware lock overlay for cleaning, plus on-screen pixel distance ruler.",
     )
     clean_mode.add(shortcut_row(store, mid, "hotkey", "Cleaning Mode Shortcut",
                                 "Global shortcut to trigger Cleaning Mode"))
@@ -928,151 +1000,7 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
                               "Drag anywhere on screen to measure and copy pixel dimensions"))
     page.add(clean_mode)
 
-    # 2. Port Manager
-    port_group = Adw.PreferencesGroup(
-        title="Port Manager",
-        description="Inspect active listening TCP/UDP ports and terminate stuck processes.",
-    )
-    port_refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic", css_classes=["flat"],
-                                  valign=Gtk.Align.CENTER, tooltip_text="Refresh listening ports")
-    port_group.set_header_suffix(port_refresh_btn)
-
-    port_filter = Adw.EntryRow(title="Filter by port or process")
-    port_group.add(port_filter)
-    port_rows: list[Gtk.Widget] = []
-
-    def refresh_ports(*_args) -> None:
-        q = port_filter.get_text().strip().lower()
-        for r in port_rows:
-            port_group.remove(r)
-        port_rows.clear()
-
-        entries = [
-            e for e in list_listening_ports()
-            if not q or q in str(e.port) or q in e.process.lower() or q in e.proto
-        ]
-        if not entries:
-            empty = Adw.ActionRow(use_markup=False, title="No matching listening ports")
-            port_group.add(empty)
-            port_rows.append(empty)
-            return
-
-        for entry in entries[:40]:
-            pid_txt = f"PID {entry.pid}" if entry.pid else "system"
-            row = Adw.ActionRow(
-                use_markup=False,
-                title=f"{entry.proto.upper()} :{entry.port} — {entry.process}",
-                subtitle=f"{entry.address} ({pid_txt})",
-            )
-            if entry.pid is not None:
-                kill_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER,
-                                      css_classes=["pill", "destructive-action"])
-                def on_kill(_b, pid=entry.pid, r=row):
-                    _b.set_sensitive(False)
-                    run_bg(lambda: kill_process(pid), lambda res: (r.set_subtitle(res[1]), refresh_ports()))
-                kill_btn.connect("clicked", on_kill)
-                row.add_suffix(kill_btn)
-            port_group.add(row)
-            port_rows.append(row)
-
-    port_refresh_btn.connect("clicked", refresh_ports)
-    port_filter.connect("changed", refresh_ports)
-    refresh_ports()
-    page.add(port_group)
-
-    # 3. Cleaner & Uninstaller
-    cleaner_group = Adw.PreferencesGroup(
-        title="System Cleaner",
-        description="Safely reclaim space from user caches, thumbnails, crash reports, and APT residue.",
-    )
-    cleaner_status = Adw.ActionRow(use_markup=False, title="Cleanup Status", subtitle="Ready")
-    target_rows: dict[str, Adw.ActionRow] = {}
-
-    def refresh_cleaner_sizes() -> None:
-        for t in scan_cleanup_targets():
-            row = target_rows.get(t.id)
-            if row is not None:
-                admin_note = " (admin)" if t.requires_admin else ""
-                row.set_subtitle(f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}")
-
-    for t in scan_cleanup_targets():
-        admin_note = " (admin)" if t.requires_admin else ""
-        t_row = Adw.ActionRow(
-            use_markup=False,
-            title=t.name,
-            subtitle=f"{t.description} · {format_bytes(t.size_bytes)}{admin_note}",
-        )
-        c_btn = Gtk.Button(label="Clean", valign=Gtk.Align.CENTER, css_classes=["pill"])
-        def on_clean(btn, tid=t.id):
-            btn.set_sensitive(False)
-            cleaner_status.set_subtitle(f"Cleaning {tid}...")
-            def done(res):
-                _ok, msg, _freed = res
-                cleaner_status.set_subtitle(msg)
-                refresh_cleaner_sizes()
-                btn.set_sensitive(True)
-            run_bg(lambda: clean_target(tid), done)
-        c_btn.connect("clicked", on_clean)
-        t_row.add_suffix(c_btn)
-        target_rows[t.id] = t_row
-        cleaner_group.add(t_row)
-
-    cleaner_group.add(cleaner_status)
-    page.add(cleaner_group)
-
-    sources = available_package_sources()
-    pkg_group = Adw.PreferencesGroup(
-        title="Package Uninstaller",
-        description=f"Detected sources: {', '.join(s.upper() for s in sources) or 'none'}",
-    )
-    src_choices = [("all", "All Sources")] + [(s, s.upper()) for s in sources]
-    src_row = Adw.ComboRow(use_markup=False, title="Package Source",
-                           model=Gtk.StringList.new([lbl for _, lbl in src_choices]))
-    pkg_group.add(src_row)
-    pkg_search = Adw.EntryRow(title="Search installed packages")
-    pkg_group.add(pkg_search)
-    pkg_rows: list[Gtk.Widget] = []
-
-    def refresh_packages(*_args) -> None:
-        q = pkg_search.get_text()
-        sel_src = src_choices[src_row.get_selected()][0]
-        for r in pkg_rows:
-            pkg_group.remove(r)
-        pkg_rows.clear()
-        pkgs = list_installed_packages(q, source=sel_src, limit=20)
-        if not pkgs:
-            empty = Adw.ActionRow(use_markup=False, title="No matching packages found")
-            pkg_group.add(empty)
-            pkg_rows.append(empty)
-            return
-        for pkg in pkgs:
-            meta = f"{pkg.size_kb / 1024:.1f} MB" if pkg.size_kb else (pkg.version or pkg.source)
-            p_row = Adw.ActionRow(
-                use_markup=False,
-                title=f"[{pkg.source.upper()}] {pkg.name} ({meta})",
-                subtitle=pkg.summary or f"Installed via {pkg.source}",
-            )
-            rm_btn = Gtk.Button(label="Uninstall", valign=Gtk.Align.CENTER,
-                                css_classes=["pill", "destructive-action"])
-            def on_remove(btn, name=pkg.name, src=pkg.source, r=p_row):
-                btn.set_sensitive(False)
-                r.set_subtitle(f"Uninstalling {name} ({src})...")
-                run_bg(lambda: uninstall_package(name, src), lambda res: (r.set_subtitle(res[1]), refresh_packages()))
-            rm_btn.connect("clicked", on_remove)
-            p_row.add_suffix(rm_btn)
-            pkg_group.add(p_row)
-            pkg_rows.append(p_row)
-
-    src_row.connect("notify::selected", refresh_packages)
-    pkg_search.connect("entry-activated", refresh_packages)
-    pkg_search_btn = Gtk.Button(icon_name="system-search-symbolic", css_classes=["flat"],
-                                valign=Gtk.Align.CENTER, tooltip_text="Search packages")
-    pkg_search_btn.connect("clicked", refresh_packages)
-    pkg_group.set_header_suffix(pkg_search_btn)
-    refresh_packages()
-    page.add(pkg_group)
-
-    # 4. Media Tools (FFmpeg)
+    # 2. Media Tools (FFmpeg)
     media_group = Adw.PreferencesGroup(
         title="Media Tools",
         description="Local video compression, GIF creation, and batch image conversion via FFmpeg.",
@@ -1159,185 +1087,7 @@ def powertools_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     media_group.add(media_status)
     page.add(media_group)
 
-    # 5. Environment Variables Manager
-    env_active, env_profiles = load_profiles()
-    env_group = Adw.PreferencesGroup(
-        title="Environment Variables",
-        description="Manage ~/.config/environment.d/90-knobu.conf with live systemd user session sync.",
-    )
-    env_status = Adw.ActionRow(use_markup=False, title="Active Profile", subtitle=f"Profile: {env_active}")
-    env_key_in = Adw.EntryRow(title="Variable Name (e.g. JAVA_HOME or PATH)")
-    env_val_in = Adw.EntryRow(title="Value")
-    env_add_btn = Gtk.Button(label="Add / Update", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
-    env_val_in.add_suffix(env_add_btn)
-    env_sync_btn = Gtk.Button(label="Save and Sync", valign=Gtk.Align.CENTER, css_classes=["pill"])
-    env_status.add_suffix(env_sync_btn)
-    env_group.add(env_status)
-    env_group.add(env_key_in)
-    env_group.add(env_val_in)
-    env_rows: list[Gtk.Widget] = []
-
-    def rebuild_env() -> None:
-        for r in env_rows:
-            env_group.remove(r)
-        env_rows.clear()
-        entries = env_profiles.get(env_active, [])
-        if not entries:
-            empty = Adw.ActionRow(use_markup=False, title="No custom user variables configured")
-            env_group.add(empty)
-            env_rows.append(empty)
-        else:
-            for item in entries:
-                r = Adw.SwitchRow(use_markup=False, title=item.key, subtitle=item.value)
-                r.set_active(item.enabled)
-                def on_tgl(sw, _p, entry=item):
-                    entry.enabled = sw.get_active()
-                r.connect("notify::active", on_tgl)
-                del_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
-                                     css_classes=["flat", "circular"], tooltip_text="Remove variable")
-                def on_del(_b, entry=item):
-                    env_profiles[env_active].remove(entry)
-                    rebuild_env()
-                del_btn.connect("clicked", on_del)
-                r.add_suffix(del_btn)
-                env_group.add(r)
-                env_rows.append(r)
-
-        sys_exp = Adw.ExpanderRow(use_markup=False, title="Inherited Session Variables (Read-only)")
-        for sk, sv in system_env_snapshot()[:20]:
-            sys_exp.add_row(Adw.ActionRow(use_markup=False, title=sk, subtitle=sv))
-        env_group.add(sys_exp)
-        env_rows.append(sys_exp)
-
-    def on_add_env(*_args) -> None:
-        k = env_key_in.get_text().strip()
-        v = env_val_in.get_text().strip()
-        if not is_valid_key(k):
-            env_status.set_subtitle(f"Invalid variable name: {k!r}")
-            return
-        lst = env_profiles.setdefault(env_active, [])
-        for existing in lst:
-            if existing.key == k:
-                existing.value = v
-                existing.enabled = True
-                break
-        else:
-            lst.append(EnvEntry(key=k, value=v, enabled=True))
-        env_key_in.set_text("")
-        env_val_in.set_text("")
-        rebuild_env()
-
-    def on_sync_env(_b) -> None:
-        env_status.set_subtitle("Syncing environment...")
-        run_bg(lambda: save_profiles(env_active, env_profiles, apply_live=True),
-               lambda res: env_status.set_subtitle(res[1]))
-
-    env_add_btn.connect("clicked", on_add_env)
-    env_sync_btn.connect("clicked", on_sync_env)
-    rebuild_env()
-    page.add(env_group)
-
-    # 6. Hosts File Editor
-    host_entries, host_preserved = load_hosts()
-    hosts_group = Adw.PreferencesGroup(
-        title="Hosts File Editor",
-        description="Toggle or add /etc/hosts entries safely with automatic backup.",
-    )
-    hosts_status = Adw.ActionRow(use_markup=False, title="/etc/hosts", subtitle=f"{len(host_entries)} entries loaded")
-    hosts_save_btn = Gtk.Button(label="Save /etc/hosts", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
-    hosts_status.add_suffix(hosts_save_btn)
-    hosts_group.add(hosts_status)
-
-    h_ip_in = Adw.EntryRow(title="IP Address (e.g. 127.0.0.1)")
-    h_name_in = Adw.EntryRow(title="Hostname(s) (e.g. api.local)")
-    h_add_btn = Gtk.Button(label="Add", valign=Gtk.Align.CENTER, css_classes=["pill"])
-    h_name_in.add_suffix(h_add_btn)
-    hosts_group.add(h_ip_in)
-    hosts_group.add(h_name_in)
-    host_rows: list[Gtk.Widget] = []
-
-    def rebuild_hosts() -> None:
-        for r in host_rows:
-            hosts_group.remove(r)
-        host_rows.clear()
-        for entry in host_entries[:25]:
-            sub = f"{' '.join(entry.hosts)}{(' · #' + entry.comment) if entry.comment else ''}"
-            r = Adw.SwitchRow(use_markup=False, title=entry.ip, subtitle=sub)
-            r.set_active(entry.enabled)
-            def on_h_tgl(sw, _p, ent=entry):
-                ent.enabled = sw.get_active()
-            r.connect("notify::active", on_h_tgl)
-            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
-                               css_classes=["flat", "circular"], tooltip_text="Delete host entry")
-            def on_h_del(_b, ent=entry):
-                host_entries.remove(ent)
-                rebuild_hosts()
-            del_b.connect("clicked", on_h_del)
-            r.add_suffix(del_b)
-            hosts_group.add(r)
-            host_rows.append(r)
-
-    def on_add_host(*_args) -> None:
-        ip = h_ip_in.get_text().strip()
-        names = h_name_in.get_text().split()
-        err = validate_host_entry(ip, names)
-        if err:
-            hosts_status.set_subtitle(err)
-            return
-        host_entries.append(HostEntry(ip=ip, hosts=names, comment="knobu", enabled=True))
-        h_ip_in.set_text("")
-        h_name_in.set_text("")
-        rebuild_hosts()
-
-    def on_save_hosts(_b) -> None:
-        hosts_status.set_subtitle("Saving /etc/hosts...")
-        run_bg(lambda: save_hosts(host_entries, host_preserved),
-               lambda res: hosts_status.set_subtitle(res[1]))
-
-    h_add_btn.connect("clicked", on_add_host)
-    hosts_save_btn.connect("clicked", on_save_hosts)
-    rebuild_hosts()
-    page.add(hosts_group)
-
-    # 7. File Locksmith
-    lock_group = Adw.PreferencesGroup(
-        title="File Locksmith",
-        description="Find processes holding open handles on a file and terminate them safely.",
-    )
-    lock_status = Adw.ActionRow(use_markup=False, title="Target File", subtitle="Choose a file to inspect open locks")
-    lock_rows: list[Gtk.Widget] = []
-
-    def inspect_locks(target: Path) -> None:
-        for r in lock_rows:
-            lock_group.remove(r)
-        lock_rows.clear()
-        lock_status.set_subtitle(str(target))
-        locks = find_file_locks(target)
-        if not locks:
-            empty = Adw.ActionRow(use_markup=False, title="No locking processes found",
-                                  subtitle="No readable processes hold an open file descriptor to this target")
-            lock_group.add(empty)
-            lock_rows.append(empty)
-            return
-        for lk in locks[:20]:
-            r = Adw.ActionRow(use_markup=False, title=f"{lk.process} (PID {lk.pid})",
-                              subtitle=f"fd {lk.fd} · {lk.path}")
-            k_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER, css_classes=["pill", "destructive-action"])
-            def on_lk_kill(_b, pid=lk.pid, row=r):
-                _b.set_sensitive(False)
-                run_bg(lambda: kill_process(pid), lambda res: (row.set_subtitle(res[1]), inspect_locks(target)))
-            k_btn.connect("clicked", on_lk_kill)
-            r.add_suffix(k_btn)
-            lock_group.add(r)
-            lock_rows.append(r)
-
-    lock_btn = Gtk.Button(label="Check File", valign=Gtk.Align.CENTER, css_classes=["pill"])
-    lock_btn.connect("clicked", lambda _b: pick_single("Select File to Check Locks", inspect_locks))
-    lock_status.add_suffix(lock_btn)
-    lock_group.add(lock_status)
-    page.add(lock_group)
-
-    # 8. Extended PowerToys (Shortcut Guide, ZoomIt, Quick Accent, Light Switch, Workspaces)
+    # 3. Extended PowerToys (Shortcut Guide, ZoomIt, Quick Accent, Light Switch, Workspaces)
     from knobu.modules.powertools.theme import get_theme, set_theme
     from knobu.modules.powertools.workspaces import WorkspaceGroup, launch_workspace, load_workspaces, save_workspaces
 
@@ -1563,7 +1313,15 @@ def notifications_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     return page
 
 
-def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
+def devops_page(store: SettingsStore, _navigate) -> Gtk.Widget:
+    from knobu.modules.powertools import (
+        HostEntry,
+        kill_process,
+        list_listening_ports,
+        load_hosts,
+        save_hosts,
+        validate_host_entry,
+    )
     from knobu.modules.powertools.aws_cli import get_active_aws_profile, load_aws_profiles, set_active_aws_profile
     from knobu.modules.powertools.cron import (
         add_cron_job,
@@ -1579,23 +1337,45 @@ def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
         get_kube_contexts,
         inspect_ssl_cert,
         query_dns,
+        stop_docker_container,
         switch_kube_context,
+        tcp_ping,
     )
 
     page = Adw.PreferencesPage()
+
+    def run_bg(work, on_done) -> None:
+        def worker():
+            res = work()
+            GLib.idle_add(lambda: on_done(res) and False)
+        threading.Thread(target=worker, daemon=True).start()
 
     hero = Gtk.Box(spacing=18, css_classes=["hero"])
     hero.append(tile("network-server-symbolic", "large"))
     text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, valign=Gtk.Align.CENTER, hexpand=True)
     text.append(Gtk.Label(label="DevOps on Cloud", xalign=0, css_classes=["title-2"]))
     text.append(Gtk.Label(
-        label="AWS CLI profiles, Kubernetes & Docker contexts, network diagnostics, and local cron jobs.",
+        label="AWS CLI profiles, Kubernetes contexts, Docker, Port Manager, Hosts Editor, diagnostics, and cron.",
         xalign=0, wrap=True, css_classes=["dim-label", "hero-subtitle"],
     ))
     hero.append(text)
     header = Adw.PreferencesGroup()
     header.add(hero)
     page.add(header)
+
+    bp_group = Adw.PreferencesGroup()
+    bp_sw = Adw.SwitchRow(
+        use_markup=False,
+        title="Bypass DevOps Cloud Overrides",
+        subtitle="Skip overwriting AWS_PROFILE / /etc/hosts changes if troubleshooting OS network state",
+    )
+    bp_sw.set_active(bool(store.data.get("devops", {}).get("bypass", False)))
+    bp_sw.connect("notify::active", lambda sw, _p: (
+        store.data.setdefault("devops", {}).__setitem__("bypass", sw.get_active()),
+        config.save(store.data),
+    ))
+    bp_group.add(bp_sw)
+    page.add(bp_group)
 
     # 1. AWS CLI & Caller Identity
     aws_group = Adw.PreferencesGroup(title="AWS CLI and Identity")
@@ -1611,6 +1391,9 @@ def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
         if active_aws in names:
             sel.set_selected(names.index(active_aws))
         def on_aws_sel(r, _p):
+            if bool(store.data.get("devops", {}).get("bypass", False)):
+                aws_row.set_subtitle("Bypass active: AWS profile switch skipped")
+                return
             chosen = profiles[r.get_selected()]
             ok, msg = set_active_aws_profile(chosen.name, chosen.region)
             aws_row.set_subtitle(f"{chosen.name} — {msg}" if ok else msg)
@@ -1645,24 +1428,151 @@ def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
     cur_kube, all_kubes = get_kube_contexts()
     if all_kubes:
         kube_row = Adw.ComboRow(use_markup=False, title="Active Kubernetes Context",
+                                subtitle=f"Active: {cur_kube}" if cur_kube else "Select context",
                                 model=Gtk.StringList.new(all_kubes))
         if cur_kube in all_kubes:
             kube_row.set_selected(all_kubes.index(cur_kube))
-        kube_row.connect("notify::selected", lambda r, _p: switch_kube_context(all_kubes[r.get_selected()]))
+        def on_kube_sel(r, _p):
+            ctx = all_kubes[r.get_selected()]
+            ok, msg = switch_kube_context(ctx)
+            r.set_subtitle(f"Active: {ctx}" if ok else msg)
+        kube_row.connect("notify::selected", on_kube_sel)
         infra_group.add(kube_row)
     else:
         infra_group.add(Adw.ActionRow(use_markup=False, title="Kubernetes Context",
                                       subtitle="No active kubectl contexts configured"))
 
     conts = get_docker_containers()
-    docker_sub = f"{len(conts)} container(s): {', '.join(c.name for c in conts[:4])}" if conts else "No active Docker containers"
-    infra_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle=docker_sub))
+    if not conts:
+        infra_group.add(Adw.ActionRow(use_markup=False, title="Docker Containers", subtitle="No active Docker containers"))
+    else:
+        for c in conts[:8]:
+            crow = Adw.ActionRow(use_markup=False, title=f"{c.name} ({c.image})", subtitle=f"{c.status} · {c.ports or 'no ports'}")
+            stop_b = Gtk.Button(label="Stop", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            stop_b.connect("clicked", lambda b, cid=c.id, row=crow: (b.set_sensitive(False), run_bg(lambda: stop_docker_container(cid), lambda res: row.set_subtitle(res[1]))))
+            crow.add_suffix(stop_b)
+            infra_group.add(crow)
     page.add(infra_group)
 
-    # 3. Network & DevOps Diagnostics
+    # 3. Port Manager (Relocated to DevOps on Cloud)
+    port_group = Adw.PreferencesGroup(
+        title="Port Manager",
+        description="Inspect active listening TCP/UDP ports and terminate stuck processes.",
+    )
+    port_refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic", css_classes=["flat"],
+                                  valign=Gtk.Align.CENTER, tooltip_text="Refresh listening ports")
+    port_group.set_header_suffix(port_refresh_btn)
+
+    port_filter = Adw.EntryRow(title="Filter by port or process")
+    port_group.add(port_filter)
+    port_rows: list[Gtk.Widget] = []
+
+    def refresh_ports(*_args) -> None:
+        q = port_filter.get_text().strip().lower()
+        for r in port_rows:
+            port_group.remove(r)
+        port_rows.clear()
+
+        entries = [
+            e for e in list_listening_ports()
+            if not q or q in str(e.port) or q in e.process.lower() or q in e.proto
+        ]
+        if not entries:
+            empty = Adw.ActionRow(use_markup=False, title="No matching listening ports")
+            port_group.add(empty)
+            port_rows.append(empty)
+            return
+
+        for entry in entries[:40]:
+            pid_txt = f"PID {entry.pid}" if entry.pid else "system"
+            row = Adw.ActionRow(
+                use_markup=False,
+                title=f"{entry.proto.upper()} :{entry.port} — {entry.process}",
+                subtitle=f"{entry.address} ({pid_txt})",
+            )
+            if entry.pid is not None:
+                kill_btn = Gtk.Button(label="Kill", valign=Gtk.Align.CENTER,
+                                      css_classes=["pill", "destructive-action"])
+                def on_kill(b, pid=entry.pid, r=row):
+                    b.set_sensitive(False)
+                    run_bg(lambda: kill_process(pid), lambda res: (r.set_subtitle(res[1]), refresh_ports()))
+                kill_btn.connect("clicked", on_kill)
+                row.add_suffix(kill_btn)
+            port_group.add(row)
+            port_rows.append(row)
+
+    port_refresh_btn.connect("clicked", refresh_ports)
+    port_filter.connect("changed", refresh_ports)
+    refresh_ports()
+    page.add(port_group)
+
+    # 4. Hosts File Editor (Relocated to DevOps on Cloud)
+    host_entries, host_preserved = load_hosts()
+    hosts_group = Adw.PreferencesGroup(
+        title="Hosts File Editor",
+        description="Toggle or add /etc/hosts domain mappings safely with automatic backup.",
+    )
+    hosts_status = Adw.ActionRow(use_markup=False, title="/etc/hosts", subtitle=f"{len(host_entries)} entries loaded")
+    hosts_save_btn = Gtk.Button(label="Save /etc/hosts", valign=Gtk.Align.CENTER, css_classes=["pill", "suggested-action"])
+    hosts_status.add_suffix(hosts_save_btn)
+    hosts_group.add(hosts_status)
+
+    h_ip_in = Adw.EntryRow(title="IP Address (e.g. 127.0.0.1)")
+    h_name_in = Adw.EntryRow(title="Hostname(s) (e.g. api.local)")
+    h_add_btn = Gtk.Button(label="Add", valign=Gtk.Align.CENTER, css_classes=["pill"])
+    h_name_in.add_suffix(h_add_btn)
+    hosts_group.add(h_ip_in)
+    hosts_group.add(h_name_in)
+    host_rows: list[Gtk.Widget] = []
+
+    def rebuild_hosts() -> None:
+        for r in host_rows:
+            hosts_group.remove(r)
+        host_rows.clear()
+        for entry in host_entries[:25]:
+            sub = f"{' '.join(entry.hosts)}{(' · #' + entry.comment) if entry.comment else ''}"
+            r = Adw.SwitchRow(use_markup=False, title=entry.ip, subtitle=sub)
+            r.set_active(entry.enabled)
+            r.connect("notify::active", lambda sw, _p, ent=entry: setattr(ent, "enabled", sw.get_active()))
+            del_b = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                               css_classes=["flat", "circular"], tooltip_text="Delete host entry")
+            def on_h_del(_b, ent=entry):
+                host_entries.remove(ent)
+                rebuild_hosts()
+            del_b.connect("clicked", on_h_del)
+            r.add_suffix(del_b)
+            hosts_group.add(r)
+            host_rows.append(r)
+
+    def on_add_host(*_args) -> None:
+        ip = h_ip_in.get_text().strip()
+        names = h_name_in.get_text().split()
+        err = validate_host_entry(ip, names)
+        if err:
+            hosts_status.set_subtitle(err)
+            return
+        host_entries.append(HostEntry(ip=ip, hosts=names, comment="knobu", enabled=True))
+        h_ip_in.set_text("")
+        h_name_in.set_text("")
+        rebuild_hosts()
+
+    def on_save_hosts(_b) -> None:
+        if bool(store.data.get("devops", {}).get("bypass", False)):
+            hosts_status.set_subtitle("Bypass active: /etc/hosts write skipped")
+            return
+        hosts_status.set_subtitle("Saving /etc/hosts...")
+        run_bg(lambda: save_hosts(host_entries, host_preserved),
+               lambda res: hosts_status.set_subtitle(res[1]))
+
+    h_add_btn.connect("clicked", on_add_host)
+    hosts_save_btn.connect("clicked", on_save_hosts)
+    rebuild_hosts()
+    page.add(hosts_group)
+
+    # 5. Network & DevOps Diagnostics
     diag_group = Adw.PreferencesGroup(
         title="Network and DevOps Diagnostics",
-        description="Live DNS query, SSL certificate inspection, and CIDR subnet calculation.",
+        description="Live DNS query, SSL certificate inspection, TCP port ping, and CIDR subnet calculation.",
     )
 
     dns_row = Adw.ActionRow(use_markup=False, title="DNS Lookup", subtitle="Query A, AAAA, CNAME, MX records")
@@ -1702,6 +1612,25 @@ def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
     ssl_row.add_suffix(ssl_btn)
     diag_group.add(ssl_row)
 
+    ping_row = Adw.ActionRow(use_markup=False, title="TCP Port Reachability", subtitle="Probe host:port latency")
+    ping_entry = Gtk.Entry(placeholder_text="host:port (e.g. github.com:443)", valign=Gtk.Align.CENTER, width_request=220)
+    ping_btn = Gtk.Button(icon_name="network-transmit-receive-symbolic", tooltip_text="Ping TCP port", valign=Gtk.Align.CENTER, css_classes=["flat"])
+    def on_ping(_b):
+        raw = ping_entry.get_text().strip()
+        if ":" not in raw:
+            ping_row.set_subtitle("Enter target as host:port")
+            return
+        h, p_s = raw.rsplit(":", 1)
+        if not p_s.isdigit():
+            ping_row.set_subtitle("Invalid port number")
+            return
+        ping_row.set_subtitle(f"Probing {h}:{p_s}...")
+        run_bg(lambda: tcp_ping(h, int(p_s)), lambda res: ping_row.set_subtitle(res[2]))
+    ping_btn.connect("clicked", on_ping)
+    ping_row.add_suffix(ping_entry)
+    ping_row.add_suffix(ping_btn)
+    diag_group.add(ping_row)
+
     cidr_row = Adw.ActionRow(use_markup=False, title="CIDR Subnet Calculator", subtitle="Calculate network mask, broadcast, and usable host capacity")
     cidr_entry = Gtk.Entry(placeholder_text="CIDR (e.g. 10.0.0.0/16)", valign=Gtk.Align.CENTER, width_request=220)
     cidr_btn = Gtk.Button(icon_name="accessories-calculator-symbolic", tooltip_text="Calculate", valign=Gtk.Align.CENTER, css_classes=["flat"])
@@ -1719,7 +1648,7 @@ def devops_page(_store: SettingsStore, _navigate) -> Gtk.Widget:
     diag_group.add(cidr_row)
     page.add(diag_group)
 
-    # 4. Local Cron Jobs & Scheduler
+    # 6. Local Cron Jobs & Scheduler
     cron_active, cron_msg = cron_service_status()
     cron_group = Adw.PreferencesGroup(
         title="Local Cron Jobs and Scheduler",
@@ -1905,6 +1834,27 @@ def automation_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     add_btn.connect("clicked", on_add_rule)
     rebuild_rules()
     rebuild_history()
+
+    tpl_group = Adw.PreferencesGroup(
+        title="Recommended Templates",
+        description="One-click presets for DevOps engineers, developers, and battery optimization.",
+    )
+    for tpl in AUTOMATION_TEMPLATES:
+        t_row = Adw.ActionRow(use_markup=False, title=tpl["name"], subtitle=tpl["description"])
+        use_b = Gtk.Button(label="Use Template", valign=Gtk.Align.CENTER, css_classes=["pill"])
+        def on_use_tpl(_b, tid=tpl["id"], r_w=t_row):
+            new_r = create_rule_from_template(tid)
+            if new_r:
+                cur = load_rules()
+                cur.append(new_r)
+                save_rules(cur)
+                r_w.set_subtitle("Added to Active Automation Rules below")
+                rebuild_rules()
+        use_b.connect("clicked", on_use_tpl)
+        t_row.add_suffix(use_b)
+        tpl_group.add(t_row)
+
+    page.add(tpl_group)
     page.add(rules_group)
     page.add(hist_group)
     return page
@@ -2106,9 +2056,13 @@ def sysmon_page(store: SettingsStore, _navigate) -> Gtk.Widget:
 
 
 # (id, title, icon, builder, section). Add new module pages here.
+from knobu.ui.system_pages import preferences_page, systools_page  # noqa: E402
+
 PAGES = [
     ("dashboard", "Dashboard", "knobu-dashboard-symbolic", dashboard_page, "top"),
-    ("devops", "DevOps on Cloud", "network-server-symbolic", devops_page, "top"),
+    ("devops", "DevOps on Cloud", "network-server-symbolic", devops_page, "tools"),
+    ("systools", "System Tools", "utilities-terminal-symbolic", systools_page, "tools"),
+    ("preferences", "Appearance & System", "preferences-desktop-theme-symbolic", preferences_page, "tools"),
     (TouchpadModule.id, TouchpadModule.name, TouchpadModule.icon, touchpad_page, "modules"),
     (KeyboardModule.id, KeyboardModule.name, KeyboardModule.icon, keyboard_page, "modules"),
     (MouseModule.id, MouseModule.name, MouseModule.icon, mouse_page, "modules"),

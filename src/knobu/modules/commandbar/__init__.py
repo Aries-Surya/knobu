@@ -59,6 +59,7 @@ class CommandBarModule(Module):
     icon = "system-search-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "hotkey": "alt+space",
         "exclusive": True,
         "override_os_shortcut": True,

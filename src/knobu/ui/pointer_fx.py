@@ -11,7 +11,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk
 
-from knobu.ui.capture import capture_screen, desktop_layout
+from knobu.ui.capture import desktop_layout
 from knobu.ui.tools import ToolApp
 
 
@@ -60,42 +60,41 @@ class ShakeDetector:
 
 
 class FindMyMouseOverlay:
-    """Fullscreen spotlight overlay dimming around the cursor until clicked or Esc pressed."""
+    """Transparent fullscreen spotlight overlay tracking the live cursor until clicked or Esc pressed."""
 
-    def __init__(self, app: Gtk.Application, pixbuf, on_done):
+    def __init__(self, app: Gtk.Application, on_done):
+        from knobu.modules.windows.zones import get_cursor_position
         self.app = app
-        self.pixbuf = pixbuf
         self.on_done = on_done
         self.finished = False
         self.cursor: tuple[Gtk.DrawingArea, float, float] | None = None
+        self._init_pos = get_cursor_position()
 
-        layout, left, top, width = desktop_layout()
-        self.scale = (pixbuf.get_width() / width) if pixbuf else 1.0
+        css = Gtk.CssProvider()
+        css.load_from_string("window.knobu-spotlight { background-color: transparent; }")
+        disp = Gdk.Display.get_default()
+        if disp:
+            Gtk.StyleContext.add_provider_for_display(
+                disp, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+
+        layout, _left, _top, _width = desktop_layout()
         app.hold()
-        self.windows = [self._window(m, g.x - left, g.y - top, g.width, g.height)
-                        for m, g in layout]
+        self.windows = [self._window(m, g.x, g.y, g.width, g.height) for m, g in layout]
 
-    def _window(self, monitor, ox: int, oy: int, w: int, h: int) -> Gtk.Window:
+    def _window(self, monitor, mx: int, my: int, w: int, h: int) -> Gtk.Window:
         area = Gtk.DrawingArea(hexpand=True, vexpand=True)
         area.set_draw_func(self._draw)
-        self.cursor = self.cursor or (area, w / 2, h / 2)
+        if self._init_pos:
+            gx, gy = self._init_pos
+            if mx <= gx < mx + w and my <= gy < my + h:
+                self.cursor = (area, float(gx - mx), float(gy - my))
 
-        if self.pixbuf:
-            s = self.scale
-            x0, y0 = int(ox * s), int(oy * s)
-            part = self.pixbuf.new_subpixbuf(
-                x0, y0, min(int(w * s), self.pixbuf.get_width() - x0),
-                min(int(h * s), self.pixbuf.get_height() - y0))
-            bg = Gtk.Picture(paintable=Gdk.Texture.new_for_pixbuf(part),
-                             content_fit=Gtk.ContentFit.FILL, can_shrink=True)
-            overlay = Gtk.Overlay(child=bg)
-            overlay.add_overlay(area)
-            child = overlay
-        else:
-            child = area
+        win = Gtk.Window(application=self.app, decorated=False, title="Knobu Find My Mouse", child=area)
+        win.add_css_class("knobu-spotlight")
 
-        win = Gtk.Window(application=self.app, decorated=False, title="Knobu Find My Mouse", child=child)
         motion = Gtk.EventControllerMotion()
+        motion.connect("enter", lambda _m, x, y, a=area: self._on_motion(a, x, y))
         motion.connect("motion", lambda _m, x, y, a=area: self._on_motion(a, x, y))
         area.add_controller(motion)
 
@@ -148,10 +147,7 @@ class FindMyMouseApp(ToolApp):
 
     def do_activate(self):
         self.hold()
-        capture_screen(self._on_screen)
-
-    def _on_screen(self, pixbuf):
-        FindMyMouseOverlay(self, pixbuf, self.release)
+        FindMyMouseOverlay(self, self.release)
 
 
 def main() -> int:

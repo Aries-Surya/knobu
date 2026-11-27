@@ -96,10 +96,11 @@ __all__ = [
 class PowerToolsModule(Module):
     id = "powertools"
     name = "Power Tools"
-    description = "Cleaning mode, screen ruler, ports, cleaner, env vars, hosts, locksmith, and media tools."
+    description = "Cleaning mode, screen ruler, media tools, quick accent, ZoomIt, Light Switch, and workspaces."
     icon = "applications-utilities-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "hotkey": "super+alt+k",
         "ruler_hotkey": "super+shift+m",
         "shortcut_guide_hotkey": "super+shift+slash",

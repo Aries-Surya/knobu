@@ -79,15 +79,15 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
 
 - [X] **Unified Desktop Window Bridge**:
   - KWin D-Bus (`qdbus`) for KDE Plasma and `wmctrl` / EWMH backend for X11/XWayland (`knobu always-on-top`, `knobu snap`).
-- [X] **Always on Top (`Super+Ctrl+T`)**:
+- [X] **Always on Top (`Super+Alt+T`)**:
   - Pin or unpin the active window above all other windows (`toggle,above`) from a global `evdev` shortcut with excluded-apps list and OSD feedback.
 - [X] **Custom Zone Grids (FancyZones)**:
   - 2-column, 3-column, 2x2 grid, priority-grid, and left-main layouts with configurable zone padding/gaps.
   - Interactive visual Layout Editor overlay (`Super+Shift+Grave`, `knobu fancyzones`).
 - [X] **Zone Snapping**:
-  - Snap active windows into defined zones via keyboard shortcuts (`Super+Ctrl+Left/Right`) or clicking zones in the overlay.
+  - Snap active windows into defined zones via keyboard shortcuts (`Super+Alt+Left/Right`) or clicking zones in the overlay.
 - [X] **Window Maximize**:
-  - Maximize window (`Super+Ctrl+Up`) to fill active screen area cleanly without fullscreen displacement.
+  - Maximize window (`Super+Alt+Up`) to fill active screen area cleanly without fullscreen displacement.
 
 ---
 
@@ -199,3 +199,58 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
   - Save named app + layout groups ("Dev Ops", "Review") and launch them together in one click (`knobu workspace`).
 - [X] **ZoomIt & Quick Accent**:
   - Screen freeze-zoom & pen/arrow/box annotation overlay (`knobu zoomit`), plus Quick Accent character picker (`knobu quick-accent`).
+
+---
+
+## Milestone 13: Cloud Sync, System Tools & Wayland Window Bridge 🚀 ✅
+
+*Architecture restructuring, enterprise cloud backup, native Wayland window controls, and static docs portal*
+
+- [X] **Architecture Reorganization**:
+  - **DevOps on Cloud**: Relocate Port Manager (`knobu ports`) and Hosts File Editor (`/etc/hosts`) into DevOps on Cloud.
+  - **Cloud Integrations**: Add active AWS CLI profile switcher and Kubernetes context switcher (`kubectl config use-context`) directly in UI and CLI.
+  - **System Tools (New Category)**: Separate System Tools from Power Tools, housing System Cleaner (`~/.cache`, crash dumps, apt), Package Uninstaller, Environment Variables Manager, and File Locksmith.
+  - **Universal Bypass Mode**: Add per-feature bypass switches across every module in UI and config for seamless OS troubleshooting.
+- [X] **Native Wayland Window Management & Pointer Fixes**:
+  - **Wayland Window Bridge**: Bundle native GNOME Shell Extension (`knobu-window-bridge@knobu.org`) providing D-Bus controls for Always on Top (`Super+Alt+T`), FancyZones window snapping, and clean window maximizing under native Wayland.
+  - **Find My Mouse Spotlight Fix**: Replace static screenshot center circles with live dynamic cursor coordinates and native GNOME `locate-pointer` ripple rings.
+- [X] **Automation Engine Expansion & Recommendations**:
+  - Expand triggers (Wi-Fi connect/disconnect, VPN, battery thresholds, process launch/exit, screen locks, schedules).
+  - Expand conditions (Wi-Fi SSID lists, battery ranges, power sources, running processes, time windows).
+  - Predefined Recommendation Templates (DevOps Workday, Gaming Passthrough, Low Battery Saver, Secure Screen Lock).
+- [X] **GitHub Gist Cloud Backup & Synchronization**:
+  - Authenticated GitHub Gist cloud backup supporting personal access tokens (PAT).
+  - Automated background sync on configuration changes or periodic schedules, plus manual 1-click push/pull sync.
+- [X] **Static Documentation Website (GitHub Pages)**:
+  - Complete, self-contained, responsive static documentation site in `docs-site/` ready for self-hosted GitHub Pages deployment.
+- [X] **Comprehensive Issue & Bug Tracking**:
+  - Maintain centralized bug tracking in `BUGS.md` with root causes, affected environments, and verification criteria.
+
+---
+
+## Milestone 14: Desktop Customization, Appearance & System Preferences Suite 🎨 ✅
+
+*Deep desktop personalization, display geometry, sound customization, and startup app controls*
+
+- [X] **Startup Applications Manager**:
+  - Full management of login startup applications (`~/.config/autostart` and `/etc/xdg/autostart`).
+  - Toggle autostart entries on/off, add custom startup applications (`Exec`, `Name`, `Icon`), and remove entries.
+- [X] **Typography & System Fonts**:
+  - System font chooser (`font-name`) and Document font chooser (`document-font-name`).
+  - Monospace font chooser (`monospace-font-name`) for terminals and IDEs.
+  - Font scaling factor adjustments, antialiasing options (`rgba`, `grayscale`, `none`), and font hinting levels (`slight`, `medium`, `full`).
+- [X] **Appearance & Desktop Theming**:
+  - **Cursor Themes & Sizing**: Choose from installed cursor themes and set hardware cursor size (24, 32, 48, 64 px).
+  - **Icon Themes**: Switch system-wide icon theme sets across standard and user icon paths.
+  - **Legacy Applications (GTK Theme)**: Configure legacy GTK3/GTK4 theme overrides (`gtk-theme`).
+  - **Desktop Background (Wallpaper)**: Wallpaper picker with independent Light Mode and Dark Mode pairing (`picture-uri` & `picture-uri-dark`), and placement options (`zoom`, `centered`, `scaled`, `spanned`).
+- [X] **Display Resolution, Zoom & Scaling Adjustments**:
+  - Read active monitors and supported display resolution modes via native Mutter D-Bus (`org.gnome.Mutter.DisplayConfig`) and `xrandr`.
+  - Adjust screen resolutions, aspect ratios, and fractional scaling/zoom ratios (100%, 125%, 150%, 175%, 200%) with a 15-second safety revert confirmation dialog.
+- [X] **Sound Profiles & Notification Ringtones**:
+  - System sound theme selector (`theme-name` in `/usr/share/sounds/`).
+  - Toggle system event alerts and input feedback sounds.
+  - Custom notification ringtone sound picker (`.ogg`/`.wav`) with live playback preview.
+- [X] **Notification Preferences**:
+  - Global notification banner toggles and lock-screen visibility controls.
+  - Per-application notification permission management (`org.gnome.desktop.notifications`).

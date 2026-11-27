@@ -40,7 +40,7 @@ Open **Knobu** from the app menu and turn on the background service. Details are
 | 🔍 **Command Bar** | Alt+Space floating launcher (PowerToys Run for Linux): search apps, calculate math, run shell commands, paths & web |
 | 🔔 **Top Tray & Notifications** | System tray dropdown showing Wi-Fi/VPN, Private & Public IP (copy), active AWS CLI profile switcher, and Mac-style Notification Center |
 | 📋 **Clipboard History** | Super+V floating manager: persistent SQLite history, copied images, live thumbnails, search, pinning, URL sanitization, and Advanced Paste transforms |
-| 🪟 **Window Manager (FancyZones)** | Super+Ctrl+T Always on Top, Super+Shift+` FancyZones layout overlay, and keyboard zone snapping |
+| 🪟 **Window Manager (FancyZones)** | Super+Alt+T Always on Top, Super+Shift+` FancyZones layout overlay, and keyboard zone snapping |
 | 🔊 **Sound Suite** | Per-app volume mixer, up to 150% audio boost, Super+Shift+A mic mute, and Super+Shift+O output device cycling |
 | 📊 **System Monitor** | Live CPU (per-core), memory, network, thermal readings, and high-load/low-battery health alerts |
 | ☁️ **DevOps & Cloud** | CIDR subnet calculator, DNS lookup, SSL expiry checker, AWS Caller Identity, Docker containers, and Cron jobs |

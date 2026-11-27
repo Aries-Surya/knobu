@@ -1,0 +1,19 @@
+{
+  "uuid": "knobu-window-bridge@knobu.org",
+  "name": "Knobu Window Bridge",
+  "description": "Exposes focused window management (Always on Top, FancyZones snapping, Maximize) and cursor position over D-Bus (org.knobu.WindowBridge) for native GNOME Wayland.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51",
+    "52"
+  ],
+  "session-modes": [
+    "user"
+  ],
+  "url": "https://github.com/Aries-Surya/knobu"
+}

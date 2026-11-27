@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knobu Docs — PowerToys &amp; Cloud DevOps Suite for Linux</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="nav">
+      <a class="brand" href="index.html"><span>Knobu</span> Docs</a>
+      <div class="nav-links">
+        <a class="active" href="index.html">Overview</a>
+        <a href="features.html">Features &amp; Shortcuts</a>
+        <a href="automations.html">Automations &amp; Cloud Sync</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="badge">v0.5.1 · Wayland &amp; X11 · GTK4 / Libadwaita</div>
+      <h1>The PowerToys &amp; DevOps Companion for Ubuntu</h1>
+      <p>Knobu unifies Microsoft PowerToys productivity utilities, macOS-style Top Bar status and Automations, Cloud &amp; Kubernetes DevOps workflows, System maintenance tools, and full GNOME Desktop customization in one native daemon + settings app.</p>
+    </section>
+
+    <h2>Quick Install</h2>
+    <pre><code>sudo dpkg -i knobu_0.5.1_all.deb
+sudo apt-get install -f -y
+sudo usermod -aG input $USER   # re-login once for kernel evdev hotkeys &amp; touchpad gestures
+knobu enable                   # start background daemon and autostart on login</code></pre>
+
+    <h2>Architecture Overview</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>DevOps on Cloud</h3>
+        <p>Active AWS CLI profile &amp; STS verification, Kubernetes context switcher, Docker container controls, Port Manager, <code>/etc/hosts</code> editor, DNS/SSL/CIDR/TCP diagnostics, and Cron scheduler.</p>
+      </div>
+      <div class="card">
+        <h3>System Tools</h3>
+        <p>System Cleaner (caches, crash dumps, apt), multi-source Package Uninstaller (apt/snap/flatpak/npm/pip/brew), Environment Variables manager, and File Locksmith.</p>
+      </div>
+      <div class="card">
+        <h3>Power Tools</h3>
+        <p>Command Bar (<kbd>Alt+Space</kbd>), Clipboard History (<kbd>Super+V</kbd>), Window Manager (<kbd>Super+Alt+T</kbd>), Screen Ruler (<kbd>Super+Shift+M</kbd>), ZoomIt, Quick Accent, and Workspaces.</p>
+      </div>
+      <div class="card">
+        <h3>Appearance &amp; System</h3>
+        <p>Startup Apps manager, system/monospace fonts &amp; hinting, cursor/icon/GTK themes, light/dark wallpapers, Mutter display resolution &amp; fractional scaling, sound profiles, and per-app notifications.</p>
+      </div>
+      <div class="card">
+        <h3>Rule Automations</h3>
+        <p>Daemon-native <em>When -&gt; If -&gt; Then</em> engine supporting Wi-Fi, VPN, battery, AC power, running apps, folder watchers, schedules, screen lock, plus 1-click DevOps templates.</p>
+      </div>
+      <div class="card">
+        <h3>GitHub Gist Cloud Sync</h3>
+        <p>Offline JSON export/restore plus encrypted-at-rest GitHub PAT authentication to sync settings automatically or on a schedule to a secret GitHub Gist.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>Knobu — GPL-3.0 · Static documentation built for GitHub Pages</footer>
+</body>
+</html>

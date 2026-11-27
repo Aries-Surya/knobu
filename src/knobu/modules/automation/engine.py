@@ -7,43 +7,117 @@ import datetime
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 import uuid
 
 from knobu import config, service
 from knobu.modules.powertools.aws_cli import set_active_aws_profile
+from knobu.modules.powertools.devops import switch_kube_context
 from knobu.modules.powertools.network import get_network_status
-from knobu.modules.powertools.theme import set_theme
+from knobu.modules.powertools.theme import parse_hm, set_theme
 from knobu.modules.powertools.workspaces import launch_workspace
 from knobu.system import notify
 
 TRIGGER_TYPES: list[tuple[str, str]] = [
     ("wifi_ssid", "Wi-Fi SSID Connected"),
+    ("wifi_disconnect", "Wi-Fi Disconnected"),
     ("vpn_connected", "VPN Connected"),
+    ("vpn_disconnect", "VPN Disconnected"),
     ("battery_below", "Battery Below (%)"),
+    ("battery_above", "Battery Charged Above (%)"),
     ("ac_power", "Power Adapter (Plugged / Unplugged)"),
     ("app_running", "App Launched / Running"),
+    ("app_closed", "App Closed / Exited"),
+    ("screen_lock", "Screen Lock State (locked / unlocked)"),
     ("folder_new_file", "New File in Folder"),
     ("time_of_day", "Time of Day (HH:MM)"),
+    ("interval", "Periodic Interval (minutes)"),
 ]
 
 CONDITION_TYPES: list[tuple[str, str]] = [
     ("always", "Always (No Condition)"),
     ("wifi_is", "Wi-Fi SSID Is"),
+    ("wifi_in", "Wi-Fi SSID In List (comma-separated)"),
     ("vpn_active", "VPN Is Active"),
+    ("vpn_inactive", "VPN Is Disconnected"),
     ("battery_below", "Battery Is Below (%)"),
+    ("battery_range", "Battery Between (min-max %)"),
     ("on_ac", "On AC Power"),
+    ("on_battery", "On Battery Power"),
+    ("app_is_running", "Process / App Is Running"),
+    ("time_window", "Within Time Window (HH:MM-HH:MM)"),
 ]
 
 ACTION_TYPES: list[tuple[str, str]] = [
     ("notify", "Send Notification"),
     ("set_theme", "Set Theme (dark / light / toggle)"),
     ("switch_aws", "Switch AWS Profile"),
+    ("switch_kube", "Switch Kubernetes Context"),
     ("set_bypass", "Set Master Bypass (on / off)"),
     ("set_awake", "Set Awake (on / off)"),
+    ("set_dnd", "Set Do Not Disturb (on / off)"),
+    ("mute_mic", "Microphone Mute (on / off / toggle)"),
     ("launch_workspace", "Launch Workspace Group"),
     ("run_command", "Run Shell Command"),
+]
+
+AUTOMATION_TEMPLATES: list[dict] = [
+    {
+        "id": "devops_workday",
+        "name": "DevOps Workday",
+        "description": "When corporate VPN connects, switch theme to light and notify.",
+        "trigger_type": "vpn_connected",
+        "trigger_value": "",
+        "condition_type": "always",
+        "condition_value": "",
+        "actions": [
+            {"type": "switch_aws", "value": "default"},
+            {"type": "notify", "value": "DevOps Workday environment active"},
+        ],
+    },
+    {
+        "id": "gaming_passthrough",
+        "name": "Gaming Passthrough",
+        "description": "Enable Master Bypass and Do Not Disturb when Steam launches.",
+        "trigger_type": "app_running",
+        "trigger_value": "steam",
+        "condition_type": "always",
+        "condition_value": "",
+        "actions": [
+            {"type": "set_bypass", "value": "on"},
+            {"type": "set_dnd", "value": "on"},
+            {"type": "notify", "value": "Gaming Passthrough active"},
+        ],
+    },
+    {
+        "id": "low_battery_saver",
+        "name": "Low Battery Saver",
+        "description": "Switch to dark theme and turn off Awake when battery drops below 20%.",
+        "trigger_type": "battery_below",
+        "trigger_value": "20",
+        "condition_type": "on_battery",
+        "condition_value": "",
+        "actions": [
+            {"type": "set_theme", "value": "dark"},
+            {"type": "set_awake", "value": "off"},
+            {"type": "notify", "value": "Battery below 20%: Power Saver applied"},
+        ],
+    },
+    {
+        "id": "secure_screen_lock",
+        "name": "Secure Screen Lock",
+        "description": "Automatically mute microphone when workstation screen locks.",
+        "trigger_type": "screen_lock",
+        "trigger_value": "locked",
+        "condition_type": "always",
+        "condition_value": "",
+        "actions": [
+            {"type": "mute_mic", "value": "on"},
+            {"type": "notify", "value": "Microphone muted on screen lock"},
+        ],
+    },
 ]
 
 
@@ -84,6 +158,8 @@ class SystemSnapshot:
     time_hm: str = ""
     running_procs: set[str] = field(default_factory=set)
     folder_files: dict[str, set[str]] = field(default_factory=dict)
+    locked: bool = False
+    tick_minute: int = 0
 
 
 def rules_path() -> Path:
@@ -92,6 +168,22 @@ def rules_path() -> Path:
 
 def history_path() -> Path:
     return config.config_path().parent / "automation_history.json"
+
+
+def create_rule_from_template(template_id: str) -> AutomationRule | None:
+    tpl = next((t for t in AUTOMATION_TEMPLATES if t["id"] == template_id), None)
+    if not tpl:
+        return None
+    return AutomationRule(
+        id=uuid.uuid4().hex[:8],
+        name=tpl["name"],
+        enabled=True,
+        trigger_type=tpl["trigger_type"],
+        trigger_value=tpl["trigger_value"],
+        condition_type=tpl["condition_type"],
+        condition_value=tpl["condition_value"],
+        actions=[AutomationAction(type=a["type"], value=a["value"]) for a in tpl["actions"]],
+    )
 
 
 def load_rules(path: Path | None = None) -> list[AutomationRule]:
@@ -206,7 +298,23 @@ def _list_proc_names() -> set[str]:
     return names
 
 
-def capture_snapshot(watched_folders: list[str] | None = None) -> SystemSnapshot:
+def _is_screen_locked() -> bool:
+    if shutil.which("gdbus"):
+        try:
+            r = subprocess.run(
+                ["gdbus", "call", "--session", "--dest", "org.freedesktop.ScreenSaver",
+                 "--object-path", "/org/freedesktop/ScreenSaver",
+                 "--method", "org.freedesktop.ScreenSaver.GetActive"],
+                capture_output=True, text=True, timeout=1.5, check=False,
+            )
+            if r.returncode == 0:
+                return "true" in r.stdout.lower()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return False
+
+
+def capture_snapshot(watched_folders: list[str] | None = None, check_lock: bool = False) -> SystemSnapshot:
     net = get_network_status()
     pct, ac = _read_power_supply()
     folders: dict[str, set[str]] = {}
@@ -217,15 +325,18 @@ def capture_snapshot(watched_folders: list[str] | None = None) -> SystemSnapshot
                 folders[raw] = {e.name for e in fp.iterdir() if not e.name.startswith(".")}
             except OSError:
                 pass
+    now = datetime.datetime.now()
     return SystemSnapshot(
         wifi_ssid=net.connection_name if net.connection_type == "wifi" else "",
         vpn_active=net.vpn_active,
         vpn_name=net.vpn_name,
         battery_percent=pct,
         ac_online=ac,
-        time_hm=datetime.datetime.now().strftime("%H:%M"),
+        time_hm=now.strftime("%H:%M"),
         running_procs=_list_proc_names(),
         folder_files=folders,
+        locked=_is_screen_locked() if check_lock else False,
+        tick_minute=int(time.time() // 60),
     )
 
 
@@ -236,18 +347,36 @@ def evaluate_rule_trigger(rule: AutomationRule, prev: SystemSnapshot, cur: Syste
 
     if t == "wifi_ssid":
         return bool(val) and cur.wifi_ssid.lower() == val.lower() and prev.wifi_ssid.lower() != val.lower()
+    if t == "wifi_disconnect":
+        if not prev.wifi_ssid:
+            return False
+        if val:
+            return prev.wifi_ssid.lower() == val.lower() and cur.wifi_ssid.lower() != val.lower()
+        return not cur.wifi_ssid
     if t == "vpn_connected":
         if not cur.vpn_active:
             return False
         if val:
             return val.lower() in cur.vpn_name.lower() and (not prev.vpn_active or val.lower() not in prev.vpn_name.lower())
         return not prev.vpn_active
+    if t == "vpn_disconnect":
+        if not prev.vpn_active:
+            return False
+        if val:
+            return val.lower() in prev.vpn_name.lower() and (not cur.vpn_active or val.lower() not in cur.vpn_name.lower())
+        return not cur.vpn_active
     if t == "battery_below":
         try:
             thresh = int(val)
         except ValueError:
             return False
         return cur.battery_percent < thresh and prev.battery_percent >= thresh
+    if t == "battery_above":
+        try:
+            thresh = int(val)
+        except ValueError:
+            return False
+        return cur.battery_percent >= thresh and prev.battery_percent < thresh
     if t == "ac_power":
         want_ac = val.lower() in ("on", "plugged", "ac", "true", "1")
         return cur.ac_online == want_ac and prev.ac_online != want_ac
@@ -256,12 +385,26 @@ def evaluate_rule_trigger(rule: AutomationRule, prev: SystemSnapshot, cur: Syste
             return False
         v = val.lower()
         return any(v in p for p in cur.running_procs) and not any(v in p for p in prev.running_procs)
+    if t == "app_closed":
+        if not val:
+            return False
+        v = val.lower()
+        return any(v in p for p in prev.running_procs) and not any(v in p for p in cur.running_procs)
+    if t == "screen_lock":
+        want_locked = val.lower() in ("", "locked", "lock", "on", "true", "1")
+        return cur.locked == want_locked and prev.locked != want_locked
     if t == "folder_new_file":
         if not val or val not in cur.folder_files or val not in prev.folder_files:
             return False
         return bool(cur.folder_files[val] - prev.folder_files[val])
     if t == "time_of_day":
         return bool(val) and cur.time_hm == val and prev.time_hm != val
+    if t == "interval":
+        try:
+            mins = max(1, int(val))
+        except ValueError:
+            return False
+        return cur.tick_minute > prev.tick_minute and (cur.tick_minute % mins) == 0
     return False
 
 
@@ -272,15 +415,44 @@ def check_condition(rule: AutomationRule, snap: SystemSnapshot) -> bool:
         return True
     if c == "wifi_is":
         return snap.wifi_ssid.lower() == val.lower()
+    if c == "wifi_in":
+        items = [s.strip().lower() for s in val.split(",") if s.strip()]
+        return bool(snap.wifi_ssid) and snap.wifi_ssid.lower() in items
     if c == "vpn_active":
         return snap.vpn_active
+    if c == "vpn_inactive":
+        return not snap.vpn_active
     if c == "battery_below":
         try:
             return snap.battery_percent < int(val)
         except ValueError:
             return False
+    if c == "battery_range":
+        parts = val.split("-", 1)
+        if len(parts) != 2:
+            return False
+        try:
+            lo, hi = int(parts[0].strip()), int(parts[1].strip())
+            return lo <= snap.battery_percent <= hi
+        except ValueError:
+            return False
     if c == "on_ac":
         return snap.ac_online
+    if c == "on_battery":
+        return not snap.ac_online
+    if c == "app_is_running":
+        v = val.lower()
+        return bool(v) and any(v in p for p in snap.running_procs)
+    if c == "time_window":
+        parts = val.split("-", 1)
+        if len(parts) != 2:
+            return False
+        start_m, end_m, cur_m = parse_hm(parts[0]), parse_hm(parts[1]), parse_hm(snap.time_hm)
+        if start_m is None or end_m is None or cur_m is None:
+            return False
+        if start_m <= end_m:
+            return start_m <= cur_m <= end_m
+        return cur_m >= start_m or cur_m <= end_m
     return True
 
 
@@ -301,6 +473,10 @@ def execute_actions(actions: list[AutomationAction]) -> tuple[bool, str]:
             ok, msg = set_active_aws_profile(v or "default")
             all_ok = all_ok and ok
             results.append(msg)
+        elif t == "switch_kube":
+            ok, msg = switch_kube_context(v)
+            all_ok = all_ok and ok
+            results.append(msg)
         elif t == "set_bypass":
             data = config.load()
             data.setdefault("general", {})["bypass"] = v.lower() in ("on", "true", "1")
@@ -313,6 +489,23 @@ def execute_actions(actions: list[AutomationAction]) -> tuple[bool, str]:
             config.save(data)
             service.reload()
             results.append(f"awake={v}")
+        elif t == "set_dnd":
+            data = config.load()
+            data.setdefault("notifications", {})["dnd"] = v.lower() in ("on", "true", "1")
+            config.save(data)
+            service.reload()
+            results.append(f"dnd={v}")
+        elif t == "mute_mic":
+            arg = "1" if v.lower() in ("on", "mute", "true", "1") else ("0" if v.lower() in ("off", "unmute", "false") else "toggle")
+            if shutil.which("wpctl"):
+                r = subprocess.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", arg],
+                                   capture_output=True, text=True, timeout=2, check=False)
+                ok = r.returncode == 0
+                all_ok = all_ok and ok
+                results.append(f"mic_mute={arg}")
+            else:
+                all_ok = False
+                results.append("wpctl not found")
         elif t == "launch_workspace":
             ok, msg = launch_workspace(v)
             all_ok = all_ok and ok

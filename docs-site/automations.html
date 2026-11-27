@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automations &amp; Cloud Sync — Knobu Docs</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="nav">
+      <a class="brand" href="index.html"><span>Knobu</span> Docs</a>
+      <div class="nav-links">
+        <a href="index.html">Overview</a>
+        <a href="features.html">Features &amp; Shortcuts</a>
+        <a class="active" href="automations.html">Automations &amp; Cloud Sync</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Automation Engine &amp; GitHub Gist Sync</h1>
+
+    <h2>Automation Engine Triggers, Conditions &amp; Actions</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Triggers (When)</h3>
+        <p><code>wifi_ssid</code>, <code>wifi_disconnect</code>, <code>vpn_connected</code>, <code>vpn_disconnect</code>, <code>battery_below</code>, <code>battery_above</code>, <code>ac_power</code>, <code>app_running</code>, <code>app_closed</code>, <code>screen_lock</code>, <code>folder_new_file</code>, <code>time_of_day</code>, <code>interval</code>.</p>
+      </div>
+      <div class="card">
+        <h3>Conditions (If)</h3>
+        <p><code>always</code>, <code>wifi_is</code>, <code>wifi_in</code> (comma-separated SSIDs), <code>vpn_active</code>, <code>vpn_inactive</code>, <code>battery_below</code>, <code>battery_range</code> (e.g. 20-80), <code>on_ac</code>, <code>on_battery</code>, <code>app_is_running</code>, <code>time_window</code> (HH:MM-HH:MM).</p>
+      </div>
+      <div class="card">
+        <h3>Actions (Then)</h3>
+        <p><code>notify</code>, <code>set_theme</code>, <code>switch_aws</code>, <code>switch_kube</code>, <code>set_bypass</code>, <code>set_awake</code>, <code>set_dnd</code>, <code>mute_mic</code>, <code>launch_workspace</code>, <code>run_command</code>.</p>
+      </div>
+    </div>
+
+    <h2>GitHub Gist Cloud Backup Setup</h2>
+    <ol>
+      <li>Create a GitHub Personal Access Token (Fine-grained or Classic) with <strong>only</strong> the <code>gist</code> scope.</li>
+      <li>Open <strong>General -&gt; Cloud Backup (GitHub Gist)</strong>, paste your token, and click <strong>Verify</strong>. (Tokens are stored locally in <code>~/.config/knobu/cloud_sync.json</code> with mode <code>0600</code> and are never uploaded into the Gist.)</li>
+      <li>Click <strong>Push to Gist</strong> to create a secret Gist containing <code>config.toml</code>, <code>automations.json</code>, and <code>workspaces.json</code>.</li>
+      <li>Optionally enable <strong>Auto-Sync on Configuration Changes</strong> or select a periodic background interval (15m / 1h / Daily).</li>
+    </ol>
+    <pre><code>knobu gist-sync status
+knobu gist-sync push
+knobu gist-sync pull</code></pre>
+  </main>
+
+  <footer>Knobu — GPL-3.0 · Static documentation built for GitHub Pages</footer>
+</body>
+</html>

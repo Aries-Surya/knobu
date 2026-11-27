@@ -449,7 +449,7 @@ class StatusTray:
                 item(309, "ZoomIt Annotate (Super+Alt+Z)", action=lambda: launch.knobu("zoomit")),
                 item(310, "Quick Accent", action=lambda: launch.knobu("quick-accent")),
                 item(311, "FancyZones Overlay (Super+Shift+`)", action=lambda: launch.knobu("fancyzones")),
-                item(312, "Always on Top (Super+Ctrl+T)", action=lambda: launch.knobu("always-on-top")),
+                item(312, "Always on Top (Super+Alt+T)", action=lambda: launch.knobu("always-on-top")),
             ]),
             item(40, f"Notifications ({len(recent_notifs)})", children=notif_children),
             item(41, item_type="separator"),

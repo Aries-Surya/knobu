@@ -182,6 +182,7 @@ class SystemMonitorModule(Module):
     icon = "utilities-system-monitor-symbolic"
     defaults = {
         "enabled": True,
+        "bypass": False,
         "top_bar_metrics": True,
         "alerts_enabled": True,
         "cpu_alert_percent": 90,

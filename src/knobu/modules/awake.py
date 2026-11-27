@@ -21,6 +21,7 @@ class AwakeModule(Module):
     icon = "knobu-awake-symbolic"
     defaults = {
         "enabled": False,      # the on/off toggle itself
+        "bypass": False,
         "mode": "indefinite",  # or "timed"
         "minutes": 60,
         "until": 0.0,          # epoch seconds when a timed session ends

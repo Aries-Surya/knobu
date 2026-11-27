@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Features &amp; Shortcuts — Knobu Docs</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="nav">
+      <a class="brand" href="index.html"><span>Knobu</span> Docs</a>
+      <div class="nav-links">
+        <a href="index.html">Overview</a>
+        <a class="active" href="features.html">Features &amp; Shortcuts</a>
+        <a href="automations.html">Automations &amp; Cloud Sync</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Features &amp; Default Keyboard Shortcuts</h1>
+    <p>Knobu avoids <kbd>Ctrl+Super</kbd> combinations across all modules to prevent desktop and compositor conflicts, favoring <kbd>Super+Alt</kbd> and <kbd>Super+Shift</kbd> chords.</p>
+
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>Default Shortcut</th><th>CLI Command</th><th>Category</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Command Bar</td><td><kbd>Alt+Space</kbd></td><td><code>knobu command-bar</code></td><td>Power Tools</td></tr>
+        <tr><td>Clipboard History + Transforms</td><td><kbd>Super+V</kbd></td><td><code>knobu clipboard</code></td><td>Power Tools</td></tr>
+        <tr><td>Always on Top</td><td><kbd>Super+Alt+T</kbd></td><td><code>knobu always-on-top</code></td><td>Window Manager</td></tr>
+        <tr><td>FancyZones Overlay</td><td><kbd>Super+Shift+`</kbd></td><td><code>knobu fancyzones</code></td><td>Window Manager</td></tr>
+        <tr><td>Snap Left / Right Zone</td><td><kbd>Super+Alt+Left</kbd> / <kbd>Right</kbd></td><td><code>knobu snap 0|1</code></td><td>Window Manager</td></tr>
+        <tr><td>Clean Maximize Window</td><td><kbd>Super+Alt+Up</kbd></td><td><code>knobu snap</code></td><td>Window Manager</td></tr>
+        <tr><td>Find My Mouse Spotlight</td><td><kbd>Super+Alt+F</kbd> or Shake</td><td><code>knobu find-mouse</code></td><td>Mouse Utilities</td></tr>
+        <tr><td>Cleaning Mode Lock</td><td><kbd>Super+Alt+K</kbd></td><td><code>knobu cleaning-mode</code></td><td>Power Tools</td></tr>
+        <tr><td>Screen Ruler</td><td><kbd>Super+Shift+M</kbd></td><td><code>knobu screen-ruler</code></td><td>Power Tools</td></tr>
+        <tr><td>Color Picker</td><td><kbd>Super+Shift+C</kbd></td><td><code>knobu pick-color</code></td><td>Power Tools</td></tr>
+        <tr><td>Text Extractor (OCR)</td><td><kbd>Super+Shift+T</kbd></td><td><code>knobu extract-text</code></td><td>Power Tools</td></tr>
+        <tr><td>ZoomIt Freeze &amp; Annotate</td><td><kbd>Super+Alt+Z</kbd></td><td><code>knobu zoomit</code></td><td>Power Tools</td></tr>
+        <tr><td>Shortcut Guide</td><td><kbd>Super+Shift+?</kbd></td><td><code>knobu shortcut-guide</code></td><td>Power Tools</td></tr>
+        <tr><td>Global Mic Mute</td><td><kbd>Super+Shift+A</kbd></td><td><code>knobu mic-mute</code></td><td>Sound Suite</td></tr>
+        <tr><td>Cycle Audio Output</td><td><kbd>Super+Shift+O</kbd></td><td><code>knobu audio-switch</code></td><td>Sound Suite</td></tr>
+      </tbody>
+    </table>
+
+    <h2>DevOps CLI Commands</h2>
+    <pre><code>knobu aws-profile                # List profiles (active starred)
+knobu aws-profile prod           # Switch AWS_PROFILE + region in live systemd env
+knobu aws-whoami                 # Verify active AWS STS Account &amp; ARN
+knobu kube-context               # List Kubernetes contexts
+knobu kube-context prod-eks      # Switch kubectl active context
+knobu ports                      # List listening TCP/UDP ports &amp; PIDs
+knobu dns example.com MX         # Query DNS records
+knobu ssl-check github.com       # Inspect TLS expiry &amp; SANs
+knobu cidr 10.20.0.0/22          # Subnet calculation</code></pre>
+
+    <h2>Universal Bypass Mode</h2>
+    <p>Every module and tool section includes a dedicated <strong>Bypass</strong> toggle at the top of its settings page (plus Master Bypass via tray or <code>knobu bypass toggle</code>) so you can immediately pass through to native OS behavior whenever troubleshooting desktop conflicts or gaming.</p>
+  </main>
+
+  <footer>Knobu — GPL-3.0 · Static documentation built for GitHub Pages</footer>
+</body>
+</html>

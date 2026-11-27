@@ -6,6 +6,7 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import struct
 import subprocess
@@ -264,9 +265,19 @@ class ClipboardStorage:
             return {"total": total, "pinned": pinned, "images": images}
 
 
+def _prefer_wl_clipboard() -> bool:
+    """Use wl-copy/wl-paste only on non-GNOME Wayland (GNOME Mutter lacks wlr-data-control and spawns a visible window)."""
+    if not os.environ.get("WAYLAND_DISPLAY"):
+        return False
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
+    if ("GNOME" in desktop or "UBUNTU" in desktop) and os.environ.get("DISPLAY") and shutil.which("xclip"):
+        return False
+    return True
+
+
 def get_clipboard_types() -> list[str]:
     """Return available clipboard mime types on Wayland or X11."""
-    if os.environ.get("WAYLAND_DISPLAY"):
+    if _prefer_wl_clipboard():
         try:
             res = subprocess.run(["wl-paste", "--list-types"], capture_output=True, text=True, timeout=0.5)
             return [t.strip() for t in res.stdout.splitlines() if t.strip()]
@@ -288,7 +299,7 @@ def is_sensitive_clipboard(types: list[str]) -> bool:
 
 def get_clipboard() -> str:
     """Read current clipboard text using wl-paste or xclip."""
-    if os.environ.get("WAYLAND_DISPLAY"):
+    if _prefer_wl_clipboard():
         try:
             return subprocess.run(
                 ["wl-paste", "--no-newline"],
@@ -318,7 +329,7 @@ def get_clipboard_image() -> bytes | None:
 
     target_type = "image/png" if "image/png" in img_types else img_types[0]
 
-    if os.environ.get("WAYLAND_DISPLAY"):
+    if _prefer_wl_clipboard():
         try:
             res = subprocess.run(["wl-paste", "--type", target_type], capture_output=True, timeout=1.0)
             if res.returncode == 0 and res.stdout:
@@ -337,7 +348,7 @@ def get_clipboard_image() -> bytes | None:
 
 def set_clipboard(text: str) -> bool:
     """Set clipboard text using wl-copy or xclip."""
-    if os.environ.get("WAYLAND_DISPLAY"):
+    if _prefer_wl_clipboard():
         try:
             p = subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE, text=True)
             p.communicate(input=text)
@@ -358,7 +369,7 @@ def set_clipboard_image(image_path: str) -> bool:
     if not p.exists() or not p.is_file():
         return False
 
-    if os.environ.get("WAYLAND_DISPLAY"):
+    if _prefer_wl_clipboard():
         try:
             with open(p, "rb") as f:
                 res = subprocess.run(["wl-copy", "--type", "image/png"], stdin=f, timeout=1.0)

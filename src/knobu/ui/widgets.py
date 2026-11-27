@@ -207,6 +207,16 @@ class ModulePage(Adw.PreferencesPage):
             self._sync()
         self.switch.connect("notify::active", on_switch)
 
+        if "bypass" in getattr(module_cls, "defaults", {}):
+            bp_group = Adw.PreferencesGroup()
+            bp_group.add(switch_row(
+                store, module_cls.id, "bypass",
+                f"Bypass {module_cls.name}",
+                "Pass through directly to native OS behavior if troubleshooting OS conflicts",
+            ))
+            super().add(bp_group)
+            self.groups.append(bp_group)
+
     def add(self, group: Gtk.Widget) -> None:
         super().add(group)
         self.groups.append(group)

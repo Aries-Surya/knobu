@@ -36,6 +36,9 @@ class Module:
 
     def _run_guarded(self) -> None:
         try:
+            if self.settings.get("bypass", False):
+                self.log.info("%s bypassed by user configuration", self.name or self.id)
+                return
             self.run(self._stop)
         except Exception:
             self.log.exception("module crashed")
