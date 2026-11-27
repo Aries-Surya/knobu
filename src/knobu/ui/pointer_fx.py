@@ -11,7 +11,6 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk
 
-from knobu.modules.windows.zones import get_cursor_position
 from knobu.ui.capture import desktop_layout
 from knobu.ui.tools import ToolApp
 
@@ -64,6 +63,7 @@ class FindMyMouseOverlay:
     """Transparent fullscreen spotlight overlay tracking the live cursor until clicked or Esc pressed."""
 
     def __init__(self, app: Gtk.Application, on_done):
+        from knobu.modules.windows.zones import get_cursor_position
         self.app = app
         self.on_done = on_done
         self.finished = False

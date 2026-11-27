@@ -670,7 +670,7 @@ def general_page(store: SettingsStore, _navigate) -> Gtk.Widget:
     page.add(bypass_group)
 
     backup_group = Adw.PreferencesGroup(
-        title="Configuration Backup & Restore",
+        title="Configuration Backup &amp; Restore",
         description="Export all module settings, shortcuts, and customizations to JSON or restore from a backup.",
     )
     backup_status = Adw.ActionRow(

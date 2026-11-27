@@ -125,6 +125,16 @@ class TestClipboard(unittest.TestCase):
         svc.unregister(bid)
         self.assertNotIn(bid, svc._bindings)
 
+    def test_prefer_wl_clipboard_gnome_uses_xclip(self):
+        from unittest.mock import patch
+        from knobu.modules.clipboard.storage import _prefer_wl_clipboard
+        with patch.dict("os.environ", {"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0", "XDG_CURRENT_DESKTOP": "ubuntu:GNOME"}, clear=False), \
+             patch("shutil.which", return_value="/usr/bin/xclip"):
+            self.assertFalse(_prefer_wl_clipboard())
+        with patch.dict("os.environ", {"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0", "XDG_CURRENT_DESKTOP": "KDE"}, clear=False), \
+             patch("shutil.which", return_value="/usr/bin/xclip"):
+            self.assertTrue(_prefer_wl_clipboard())
+
 
 if __name__ == "__main__":
     unittest.main()
