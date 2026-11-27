@@ -5,6 +5,26 @@ All notable changes to Knobu will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/Aries-Surya/knobu/compare/v0.5.1...v0.6.0) (2026-11-27)
+
+
+### Features
+
+* **m13,m14:** implement Cloud Sync, System Tools, Preferences Suite, and Super+Alt window hotkeys ([d88a743](https://github.com/Aries-Surya/knobu/commit/d88a7433de9f8135b778cf3bd351e819bab39620))
+* release v0.5.1 — Milestones 13 & 14 (Cloud Sync, System Preferences Suite, DevOps Tools & Wayland Window Bridge) ([4cef591](https://github.com/Aries-Surya/knobu/commit/4cef59115d40aaddee34f7fcc68a2088a29fad4b))
+
+
+### Bug Fixes
+
+* **clipboard,pointer_fx,ui:** avoid wl-clipboard window on GNOME, fix circular import, escape Pango markup ([0e50771](https://github.com/Aries-Surya/knobu/commit/0e5077167db199207e1e85fdd3ffb3ff6a34e6cf))
+* **windows,mouse:** add Wayland GNOME Window Bridge (BUG-001) and live Find My Mouse tracking (BUG-002) ([4587963](https://github.com/Aries-Surya/knobu/commit/458796391bbd38954dd2e736b2fdd037393fa7ff))
+
+
+### Documentation
+
+* add BUGS.md tracker and update ROADMAP and CHANGELOG for Milestone 13 ([92534cf](https://github.com/Aries-Surya/knobu/commit/92534cf5aab8874b73f34d1992f57bc0063e6d83))
+* add Milestone 14 (Desktop Customization, Appearance & System Preferences Suite) to ROADMAP ([e8703cb](https://github.com/Aries-Surya/knobu/commit/e8703cb1be91ff0c2069f73d42f58e5d904cbe92))
+
 ## [0.5.1](https://github.com/Aries-Surya/knobu/compare/v0.5.0...v0.5.1) (2026-11-27)
 
 
