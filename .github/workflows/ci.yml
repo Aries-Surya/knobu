@@ -33,6 +33,7 @@ jobs:
 
       - name: Install build and test dependencies
         run: |
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list* /etc/apt/sources.list.d/*microsoft*
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
@@ -102,6 +103,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list* /etc/apt/sources.list.d/*microsoft*
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
