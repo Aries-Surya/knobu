@@ -225,3 +225,32 @@ Knobu is evolving into the definitive Linux desktop companion, bringing together
   - Complete, self-contained, responsive static documentation site in `docs-site/` ready for self-hosted GitHub Pages deployment.
 - [ ] **Comprehensive Issue & Bug Tracking**:
   - Maintain centralized bug tracking in `BUGS.md` with root causes, affected environments, and verification criteria.
+
+---
+
+## Milestone 14: Desktop Customization, Appearance & System Preferences Suite 🎨 (In Progress)
+
+*Deep desktop personalization, display geometry, sound customization, and startup app controls*
+
+- [ ] **Startup Applications Manager**:
+  - Full management of login startup applications (`~/.config/autostart` and `/etc/xdg/autostart`).
+  - Toggle autostart entries on/off, add custom startup applications (`Exec`, `Name`, `Icon`), and remove entries.
+- [ ] **Typography & System Fonts**:
+  - System font chooser (`font-name`) and Document font chooser (`document-font-name`).
+  - Monospace font chooser (`monospace-font-name`) for terminals and IDEs.
+  - Font scaling factor adjustments, antialiasing options (`rgba`, `grayscale`, `none`), and font hinting levels (`slight`, `medium`, `full`).
+- [ ] **Appearance & Desktop Theming**:
+  - **Cursor Themes & Sizing**: Choose from installed cursor themes and set hardware cursor size (24, 32, 48, 64 px).
+  - **Icon Themes**: Switch system-wide icon theme sets across standard and user icon paths.
+  - **Legacy Applications (GTK Theme)**: Configure legacy GTK3/GTK4 theme overrides (`gtk-theme`).
+  - **Desktop Background (Wallpaper)**: Wallpaper picker with independent Light Mode and Dark Mode pairing (`picture-uri` & `picture-uri-dark`), and placement options (`zoom`, `centered`, `scaled`, `spanned`).
+- [ ] **Display Resolution, Zoom & Scaling Adjustments**:
+  - Read active monitors and supported display resolution modes via native Mutter D-Bus (`org.gnome.Mutter.DisplayConfig`) and `xrandr`.
+  - Adjust screen resolutions, aspect ratios, and fractional scaling/zoom ratios (100%, 125%, 150%, 175%, 200%) with a 15-second safety revert confirmation dialog.
+- [ ] **Sound Profiles & Notification Ringtones**:
+  - System sound theme selector (`theme-name` in `/usr/share/sounds/`).
+  - Toggle system event alerts and input feedback sounds.
+  - Custom notification ringtone sound picker (`.ogg`/`.wav`) with live playback preview.
+- [ ] **Notification Preferences**:
+  - Global notification banner toggles and lock-screen visibility controls.
+  - Per-application notification permission management (`org.gnome.desktop.notifications`).
